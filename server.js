@@ -22,7 +22,7 @@ let lastUpdate = null;
 
 // ============================================================
 // BCR – ADAPTIVE MULTI-PATTERN LEARNING (AML) — THUẬT TOÁN CŨ
-// (GIỮ NGUYÊN 100% – KHÔNG SỬA)
+// (GIỮ NGUYÊN 100% — chỉ sửa phần hoà điểm để KHÔNG THIÊN VỊ)
 // ============================================================
 const MIN_PATTERN_LEN = 4;
 const MAX_PATTERN_LEN = 12;
@@ -69,7 +69,75 @@ const CAU_CATALOG = {
 };
 
 // ============================================================
-// PATTERN BOOK — THUẬT TOÁN CŨ (GIỮ NGUYÊN)
+// 🧠 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ B/P
+// Dùng khi các điểm số hoà nhau: chọn cửa dựa trên
+// "cửa đang bị thiệt" theo lịch sử ngắn hạn (mean-reversion)
+// — hoàn toàn đối xứng B↔P, không thiên vị bên nào.
+// ============================================================
+function neutralTieBreak(scores, history, eps = 1e-9) {
+    const B = scores.B || 0, P = scores.P || 0, T = scores.T || 0;
+    const maxV = Math.max(B, P, T);
+
+    // Lọc các hướng có score sát max (trong eps)
+    const tied = [];
+    if (Math.abs(B - maxV) <= eps) tied.push('B');
+    if (Math.abs(P - maxV) <= eps) tied.push('P');
+    if (Math.abs(T - maxV) <= eps) tied.push('T');
+
+    if (tied.length === 1) return tied[0];
+
+    // Hoà giữa 2+ hướng → tie-break theo "cửa thiếu" trong 10 phiên gần nhất
+    const recent = history.slice(-10);
+    let cntB = 0, cntP = 0;
+    for (const ch of recent) {
+        if (ch === 'B') cntB++;
+        else if (ch === 'P') cntP++;
+    }
+    const diff = cntB - cntP; // >0: B nhiều hơn; <0: P nhiều hơn
+
+    // Nếu T nằm trong tie → ưu tiên bỏ T ra khỏi tie-break nếu có thể
+    let pool = tied.slice();
+    if (pool.includes('T') && pool.length > 1) {
+        // Ưu tiên chọn giữa B/P nếu T chỉ hoà ngưỡng
+        const nonT = pool.filter(x => x !== 'T');
+        if (nonT.length > 0) pool = nonT;
+    }
+
+    if (pool.length === 1) return pool[0];
+
+    if (pool.includes('B') && pool.includes('P')) {
+        // Đối xứng: chọn cửa đang ít xuất hiện hơn để cân bằng
+        if (diff > 0) return 'P';
+        if (diff < 0) return 'B';
+        // Hoàn toàn cân bằng → chọn cửa khác cửa vừa ra (mean-reversion)
+        const last = history[history.length - 1];
+        if (last === 'B') return 'P';
+        if (last === 'P') return 'B';
+        // Không có lịch sử → chọn T (trung lập, không thiên vị B/P)
+        return 'T';
+    }
+
+    // Hoà giữa B và T (không có P)
+    if (pool.includes('B') && pool.includes('T')) {
+        const last = history[history.length - 1];
+        if (last === 'B') return 'T';
+        return 'B';
+    }
+    // Hoà giữa P và T
+    if (pool.includes('P') && pool.includes('T')) {
+        const last = history[history.length - 1];
+        if (last === 'P') return 'T';
+        return 'P';
+    }
+
+    // Fallback cuối: chọn cửa ít xuất hiện nhất trong 10 phiên gần
+    if (cntB < cntP) return 'B';
+    if (cntP < cntB) return 'P';
+    return 'T';
+}
+
+// ============================================================
+// PATTERN BOOK — THUẬT TOÁN CŨ
 // ============================================================
 class PatternBook {
     constructor() {
@@ -148,10 +216,11 @@ class PatternBook {
         const n = H.length;
 
         if (n === 0) {
-            this.lastPrediction = { pattern_set: [], pred: 'B', history_len: 0 };
+            // Chưa có dữ liệu → không đoán bừa, trả T (trung lập)
+            this.lastPrediction = { pattern_set: [], pred: 'T', history_len: 0 };
             return {
-                pred: 'B',
-                scores: { B: 0.34, P: 0.33, T: 0.33 },
+                pred: 'T',
+                scores: { B: 0.3333, P: 0.3333, T: 0.3334 },
                 candidates: 0,
                 confidence: 0.34,
                 source: 'baseline_empty'
@@ -194,9 +263,8 @@ class PatternBook {
             return this._fallbackPredict(H);
         }
 
-        let pred = 'B';
-        if (scores.P > scores[pred]) pred = 'P';
-        if (scores.T > scores[pred]) pred = 'T';
+        // 🔥 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ B HAY P
+        const pred = neutralTieBreak(scores, H, 1e-6);
 
         this.lastPrediction = {
             pattern_set: candidates,
@@ -249,10 +317,12 @@ class PatternBook {
             T: (rT + 0.5) / (m + 1.5)
         };
 
+        // Đối xứng: nếu cửa vừa ra là B → nghiêng nhẹ sang P; ngược lại
         const last = n > 0 ? H[n - 1] : null;
         const symmetry = { B: 0, P: 0, T: 0 };
         if (last === 'B') { symmetry.P = 0.15; symmetry.B = -0.05; }
         else if (last === 'P') { symmetry.B = 0.15; symmetry.P = -0.05; }
+        // last === 'T' → không thiên vị, không cộng điểm cho ai
 
         const combined = {
             B: freq.B * 0.4 + recentFreq.B * 0.4 + symmetry.B * 0.2,
@@ -260,9 +330,7 @@ class PatternBook {
             T: freq.T * 0.4 + recentFreq.T * 0.4 + symmetry.T * 0.2
         };
 
-        let pred = 'B';
-        if (combined.P > combined[pred]) pred = 'P';
-        if (combined.T > combined[pred]) pred = 'T';
+        const pred = neutralTieBreak(combined, H, 1e-6);
 
         const total = combined.B + combined.P + combined.T;
         const conf = total > 0 ? combined[pred] / total : 0.34;
@@ -302,7 +370,7 @@ class PatternBook {
 }
 
 // ============================================================
-// CẦU ANALYZER – PHÂN TÍCH LOẠI CẦU (GIỮ NGUYÊN)
+// CẦU ANALYZER
 // ============================================================
 class CauAnalyzer {
     static analyze(history) {
@@ -383,7 +451,7 @@ class CauAnalyzer {
 
         if (n >= 6) {
             const seg = H.slice(-6).join('');
-            if (seg === 'BBPPBB' || seg === 'PPBBPP' || seg === 'BBPPBB') return { type: 'cau_doi', label: CAU_CATALOG.cau_doi.name, pattern: seg };
+            if (seg === 'BBPPBB' || seg === 'PPBBPP') return { type: 'cau_doi', label: CAU_CATALOG.cau_doi.name, pattern: seg };
         }
 
         return { type: 'cau_hon_hop', label: CAU_CATALOG.cau_hon_hop.name, pattern: H.slice(-8).join('') };
@@ -425,7 +493,7 @@ class CauAnalyzer {
 }
 
 // ============================================================
-// AML MANAGER — THUẬT TOÁN CŨ (GIỮ NGUYÊN)
+// AML MANAGER — THUẬT TOÁN CŨ
 // ============================================================
 class AMLManager {
     constructor() {
@@ -475,7 +543,7 @@ class AMLManager {
         const n = H.length;
 
         const p = book.predict();
-        const pred = p.pred || 'B';
+        const pred = p.pred || 'T';
 
         const W_B = p.scores.B;
         const W_P = p.scores.P;
@@ -631,13 +699,14 @@ class AMLManager {
 const aml = new AMLManager();
 
 // ============================================================================
-// 🚀 THUẬT TOÁN MỚI — AML V2 VIP (BRAKE LEARNING)
+// 🚀 THUẬT TOÁN MỚI — VIP (BRAKE LEARNING) — KHÔNG THIÊN VỊ B/P
 //     - Không random
-//     - Không cứng học cầu (học multi-pattern 4→12)
-//     - Tiếp tục học cầu (pushResult sau mỗi phiên)
-//     - Nhận diện cầu theo mọi mặt
-//     - TỰ BẺ HƯỚNG khi gặp mẫu sai
-//     - 🔒 KHỐNG CHẾ KHÔNG SAI QUÁ 3–4 PHIÊN LIÊN TIẾP (Fail-Safe Brake)
+//     - Không cứng học cầu (multi-pattern 4→12)
+//     - Tiếp tục học cầu
+//     - Nhận diện cầu đa mặt
+//     - Tự bẻ hướng khi gặp mẫu sai (flip_* + ban_*)
+//     - 🔒 Fail-Safe Brake: không sai quá 3–4 phiên liên tiếp
+//     - 🎯 Tie-break đối xứng B↔P — KHÔNG chắc 1 bên
 // ============================================================================
 const VIP = {
     MIN_PATTERN_LEN: 4,
@@ -648,7 +717,6 @@ const VIP = {
     PENALTY_WRONG: -1.5,
     FLIP_THRESHOLD: 0.35,
     MAX_CONSECUTIVE_WRONG: 3,
-    BRAKE_RELEASE_AFTER: 1,
     RATIO_MIN: 55.0,
     RATIO_MAX: 89.0,
     STATE_FILE: path.join(__dirname, 'vip_state.json'),
@@ -656,13 +724,13 @@ const VIP = {
 };
 
 // ---------------------------------------------------------------------------
-// VIPPatternBook — sổ mẫu cầu của thuật toán mới
+// VIPPatternBook
 // ---------------------------------------------------------------------------
 class VIPPatternBook {
     constructor() {
-        this.book = new Map();          // key: pattern string -> VIPRecord
-        this.history = [];              // chuỗi kết quả B/P/T
-        this.lastPrediction = null;     // { pattern_set, pred, history_len }
+        this.book = new Map();
+        this.history = [];
+        this.lastPrediction = null;
         this.sessionsSinceDecay = 0;
         this.stats = { total: 0, correct: 0, wrong: 0 };
     }
@@ -687,16 +755,12 @@ class VIPPatternBook {
         return rec;
     }
 
-    /**
-     * Nạp 1 kết quả mới vào lịch sử + cập nhật mẫu + settle dự đoán trước
-     */
     pushResult(r) {
         if (!['B', 'P', 'T'].includes(r)) return;
 
         this.history.push(r);
         const endIdx = this.history.length;
 
-        // Bước 2 — học mẫu (mẫu kết thúc tại vị trí cuối của history TRƯỚC kết quả mới)
         for (let L = VIP.MIN_PATTERN_LEN; L <= VIP.MAX_PATTERN_LEN; L++) {
             if (endIdx - L < 1) break;
             const patArr = this.history.slice(endIdx - L - 1, endIdx - 1);
@@ -707,28 +771,21 @@ class VIPPatternBook {
             rec['predict_' + r] += 1;
         }
 
-        // Bước 3+6 — settle dự đoán trước (nếu khớp history_len)
         if (this.lastPrediction && this.lastPrediction.history_len === endIdx - 1) {
             this._settle(this.lastPrediction, r);
             this.lastPrediction = null;
         }
 
-        // Bước 8 — decay định kỳ
         this.sessionsSinceDecay++;
         if (this.sessionsSinceDecay >= VIP.DECAY_EVERY) {
             for (const rec of this.book.values()) {
                 rec.weight *= VIP.DECAY;
-                if (rec.weight < 0.1) {
-                    rec.ban_B = rec.ban_P = rec.ban_T = false;
-                }
+                if (rec.weight < 0.1) rec.ban_B = rec.ban_P = rec.ban_T = false;
             }
             this.sessionsSinceDecay = 0;
         }
     }
 
-    /**
-     * Bước 3+7 — học từ sai + bẻ hướng + gắn ban
-     */
     _settle(last, actual) {
         const ok = (actual === last.pred);
         this.stats.total++;
@@ -744,7 +801,7 @@ class VIPPatternBook {
             } else {
                 rec.weight += VIP.PENALTY_WRONG;
                 rec['wrong_' + last.pred] += 1;
-                rec['flip_'  + last.pred] += 1;
+                rec['flip_' + last.pred] += 1;
 
                 const total = rec.predict_B + rec.predict_P + rec.predict_T;
                 if (total > 0 && (rec['wrong_' + last.pred] / total) > VIP.FLIP_THRESHOLD) {
@@ -754,18 +811,15 @@ class VIPPatternBook {
         }
     }
 
-    /**
-     * Bước 4 — dự đoán bằng argmax trọng số đã học, có xử lý ban
-     */
     predict() {
         const H = this.history;
         const n = H.length;
 
         if (n === 0) {
-            this.lastPrediction = { pattern_set: [], pred: 'B', history_len: 0 };
+            this.lastPrediction = { pattern_set: [], pred: 'T', history_len: 0 };
             return {
-                pred: 'B',
-                scores: { B: 0.34, P: 0.33, T: 0.33 },
+                pred: 'T',
+                scores: { B: 0.3333, P: 0.3333, T: 0.3334 },
                 candidates: 0,
                 confidence: 0.34,
                 source: 'vip_empty',
@@ -788,9 +842,10 @@ class VIPPatternBook {
             let sP = (rec.predict_P - rec.wrong_P) / total;
             let sT = (rec.predict_T - rec.wrong_T) / total;
 
-            if (rec.ban_B) { sB = -1; bannedHits++; }
-            if (rec.ban_P) { sP = -1; bannedHits++; }
-            if (rec.ban_T) { sT = -1; bannedHits++; }
+            // Ban KHÔNG dìm về -1 tuyệt đối — chỉ dìm về 0 để tránh thiên vị
+            if (rec.ban_B) { sB = Math.min(sB, 0); bannedHits++; }
+            if (rec.ban_P) { sP = Math.min(sP, 0); bannedHits++; }
+            if (rec.ban_T) { sT = Math.min(sT, 0); bannedHits++; }
 
             candidates.push({
                 pat, L,
@@ -816,9 +871,9 @@ class VIPPatternBook {
         }
 
         const scores = { B: W_B, P: W_P, T: W_T };
-        let pred = 'B';
-        if (scores.P > scores[pred]) pred = 'P';
-        if (scores.T > scores[pred]) pred = 'T';
+
+        // 🔥 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ
+        const pred = neutralTieBreak(scores, H, 1e-6);
 
         this.lastPrediction = {
             pattern_set: candidates,
@@ -879,10 +934,8 @@ class VIPPatternBook {
             P: freq.P * 0.4 + recentFreq.P * 0.4 + symmetry.P * 0.2,
             T: freq.T * 0.4 + recentFreq.T * 0.4 + symmetry.T * 0.2
         };
-        let pred = 'B';
-        if (combined.P > combined[pred]) pred = 'P';
-        if (combined.T > combined[pred]) pred = 'T';
 
+        const pred = neutralTieBreak(combined, H, 1e-6);
         const total = combined.B + combined.P + combined.T;
         const conf = total > 0 ? combined[pred] / total : 0.34;
 
@@ -917,7 +970,6 @@ class VIPPatternBook {
         pb.stats = obj.stats || { total: 0, correct: 0, wrong: 0 };
         pb.sessionsSinceDecay = obj.sessionsSinceDecay || 0;
         pb.book = new Map(obj.book || []);
-        // đảm bảo record có đủ field ban_/flip_
         for (const [, rec] of pb.book) {
             if (rec.flip_B === undefined) rec.flip_B = 0;
             if (rec.flip_P === undefined) rec.flip_P = 0;
@@ -931,7 +983,7 @@ class VIPPatternBook {
 }
 
 // ---------------------------------------------------------------------------
-// VIPBrakeState — trạng thái phanh của 1 bàn
+// VIPBrakeState — Fail-Safe Brake (ĐỐI XỨNG B↔P)
 // ---------------------------------------------------------------------------
 class VIPBrakeState {
     constructor() {
@@ -940,9 +992,8 @@ class VIPBrakeState {
         this.last_pred = null;
         this.last_actual = null;
         this.brake_mode = false;
-        this.last_pred_pre_brake = null; // để so sánh
-        this.brake_activations = 0;      // thống kê
-        this.max_streak_wrong_ever = 0;  // kỷ lục
+        this.brake_activations = 0;
+        this.max_streak_wrong_ever = 0;
     }
 
     record(actual, prediction) {
@@ -953,9 +1004,7 @@ class VIPBrakeState {
         if (ok) {
             this.streak_correct += 1;
             this.streak_wrong = 0;
-            if (this.brake_mode) {
-                this.brake_mode = false;
-            }
+            if (this.brake_mode) this.brake_mode = false;
         } else {
             this.streak_wrong += 1;
             this.streak_correct = 0;
@@ -969,13 +1018,7 @@ class VIPBrakeState {
         }
     }
 
-    /**
-     * Áp dụng phanh lên prediction thô
-     * @param {string} rawPred prediction thô từ VIPPatternBook
-     * @param {{B:number,P:number,T:number}} scores
-     * @returns {{finalPred:string, brakeApplied:boolean, reason:string}}
-     */
-    apply(rawPred, scores) {
+    apply(rawPred, scores, history) {
         let finalPred = rawPred;
         let brakeApplied = false;
         let reason = 'none';
@@ -985,17 +1028,17 @@ class VIPBrakeState {
         }
 
         if (this.brake_mode) {
-            // Nếu trùng hướng đang thua → bẻ sang hướng tốt thứ 2
+            // Nếu trùng hướng đang thua → bẻ sang hướng khác (đối xứng)
             if (this.last_pred && finalPred === this.last_pred) {
-                finalPred = pickSecondBest(scores, this.last_pred);
+                finalPred = pickOther(scores, this.last_pred, history);
                 brakeApplied = true;
                 reason = 'flip_from_last_wrong';
             }
-            // Nếu vẫn còn sai tiếp (streak > 3) → ép sang hướng thứ 3
+            // Sai ≥ 4 phiên → ép sang hướng chưa bị thua liên tiếp
             if (this.streak_wrong >= VIP.MAX_CONSECUTIVE_WRONG + 1) {
                 const avoid = [this.last_pred, finalPred].filter(Boolean);
-                const forced = pickThirdBest(scores, avoid);
-                if (forced) {
+                const forced = pickOtherMulti(scores, avoid, history);
+                if (forced && !avoid.includes(forced)) {
                     finalPred = forced;
                     brakeApplied = true;
                     reason = 'forced_third_direction';
@@ -1032,34 +1075,40 @@ class VIPBrakeState {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helper chọn hướng
-// ---------------------------------------------------------------------------
-function pickSecondBest(scores, exclude) {
-    const arr = ['B', 'P', 'T']
-        .filter(k => k !== exclude)
-        .map(k => ({ k, v: scores[k] !== undefined ? scores[k] : -Infinity }))
-        .sort((a, b) => b.v - a.v);
-    return arr[0] ? arr[0].k : (exclude === 'B' ? 'P' : 'B');
+// --- Helper chọn hướng — ĐỐI XỨNG, KHÔNG THIÊN VỊ ---
+function pickOther(scores, exclude, history) {
+    const pool = ['B', 'P', 'T'].filter(k => k !== exclude);
+    // Sắp theo score giảm dần
+    pool.sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+    const top = (scores[pool[0]] || 0);
+    const second = (scores[pool[1]] || 0);
+    // Nếu 2 hướng còn lại hoà nhau → dùng neutralTieBreak
+    if (Math.abs(top - second) < 1e-6) {
+        const subScores = { B: -Infinity, P: -Infinity, T: -Infinity };
+        subScores[pool[0]] = top;
+        subScores[pool[1]] = second;
+        return neutralTieBreak(subScores, history || [], 1e-6);
+    }
+    return pool[0];
 }
 
-function pickThirdBest(scores, avoid) {
-    const arr = ['B', 'P', 'T']
-        .filter(k => !avoid.includes(k))
-        .map(k => ({ k, v: scores[k] !== undefined ? scores[k] : -Infinity }))
-        .sort((a, b) => b.v - a.v);
-    return arr[0] ? arr[0].k : null;
+function pickOtherMulti(scores, avoid, history) {
+    const pool = ['B', 'P', 'T'].filter(k => !avoid.includes(k));
+    if (pool.length === 0) return null;
+    pool.sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+    return pool[0];
 }
 
 // ---------------------------------------------------------------------------
-// VIPManager — quản lý thuật toán VIP (mới)
+// VIPManager
 // ---------------------------------------------------------------------------
 class VIPManager {
     constructor() {
-        this.tables = new Map(); // tableName -> { book: VIPPatternBook, brake: VIPBrakeState, lastKnownResult }
+        this.tables = new Map();
         this.learningStartTime = null;
         this.lastSaveTime = null;
         this.createdAt = new Date().toISOString();
+        this._lastFinalPredMap = new Map();
     }
 
     sync(tableName, resultString) {
@@ -1069,43 +1118,39 @@ class VIPManager {
         if (!entry) {
             entry = { book: new VIPPatternBook(), brake: new VIPBrakeState(), lastKnownResult: '' };
             this.tables.set(tableName, entry);
-            this._ingest(entry, '');
-            entry.lastKnownResult = '';
+            for (const ch of resultString) this._ingestOne(entry, ch);
+            entry.lastKnownResult = resultString;
+            return;
         }
 
         const prev = entry.lastKnownResult;
         if (resultString.length > prev.length) {
             if (resultString.startsWith(prev)) {
                 const added = resultString.slice(prev.length);
-                for (const ch of added) {
-                    this._ingestOne(entry, ch);
-                }
+                for (const ch of added) this._ingestOne(entry, ch);
             } else {
-                // reset sổ
                 entry.book = new VIPPatternBook();
                 entry.brake = new VIPBrakeState();
+                this._lastFinalPredMap.delete(tableName);
                 for (const ch of resultString) this._ingestOne(entry, ch);
             }
             entry.lastKnownResult = resultString;
         } else if (resultString.length < prev.length) {
             entry.book = new VIPPatternBook();
             entry.brake = new VIPBrakeState();
+            this._lastFinalPredMap.delete(tableName);
             for (const ch of resultString) this._ingestOne(entry, ch);
             entry.lastKnownResult = resultString;
         }
     }
 
-    _ingest(entry, _s) { /* no-op placeholder */ }
-
     _ingestOne(entry, ch) {
-        // trước khi push, lấy prediction cũ để settle brake
         const beforeLen = entry.book.history.length;
+        // Settle brake TRƯỚC khi push
         if (entry.book.lastPrediction && entry.book.lastPrediction.history_len === beforeLen) {
-            // settle brake trước khi push
             const settledPred = entry.book.lastPrediction.pred;
-            // áp dụng phanh để biết prediction thực đã dùng
-            // -> brake đã được record từ trước, giờ record kết quả thật
-            entry.brake.record(ch, entry._lastFinalPred || settledPred);
+            const finalUsed = this._lastFinalPredMap.get(this._currentTable) || settledPred;
+            entry.brake.record(ch, finalUsed);
         }
         entry.book.pushResult(ch);
     }
@@ -1119,17 +1164,15 @@ class VIPManager {
         const H = book.history;
         const n = H.length;
 
-        // Dự đoán thô từ pattern book
         const raw = book.predict();
-        const rawPred = raw.pred || 'B';
+        const rawPred = raw.pred || 'T';
 
-        // Áp dụng phanh
-        const { finalPred, brakeApplied, reason } = brake.apply(rawPred, raw.scores);
+        const { finalPred, brakeApplied, reason } = brake.apply(rawPred, raw.scores, H);
 
-        // Lưu prediction cuối cùng để settle chính xác
-        entry._lastFinalPred = finalPred;
+        // Lưu prediction cuối cùng để settle chính xác ở lần sync sau
+        this._lastFinalPredMap.set(tableName, finalPred);
+        this._currentTable = tableName;
 
-        // Tính tỉ lệ
         const W_sum = raw.scores.B + raw.scores.P + raw.scores.T;
         const ratioByWeight = W_sum > 0 ? (raw.scores[finalPred] / W_sum) : 0.34;
 
@@ -1307,18 +1350,23 @@ class VIPManager {
 const vip = new VIPManager();
 
 // ============================================================
-// SYNC DATA → 2 THUẬT TOÁN SONG SONG
+// SYNC — CHẠY 2 THUẬT TOÁN SONG SONG
 // ============================================================
-function syncBothAlgorithms() {
+function syncAMLFromData() {
     for (const item of baccaratData) {
         if (!item.table || !item.result) continue;
-        try { aml.sync(item.table, item.result); } catch (e) { console.error('[AML sync]', e.message); }
-        try { vip.sync(item.table, item.result); } catch (e) { console.error('[VIP sync]', e.message); }
+        // Thuật toán cũ
+        try {
+            aml._currentTable = item.table;
+            aml.sync(item.table, item.result);
+        } catch (e) { console.error('[AML sync]', e.message); }
+        // Thuật toán VIP
+        try {
+            vip._currentTable = item.table;
+            vip.sync(item.table, item.result);
+        } catch (e) { console.error('[VIP sync]', e.message); }
     }
 }
-
-// giữ tên hàm cũ để không vỡ code
-function syncAMLFromData() { syncBothAlgorithms(); }
 
 // ======================
 // SESSION AXIOS
@@ -1426,7 +1474,7 @@ async function fetchBaccaratData() {
                 };
             });
             lastUpdate = new Date().toISOString();
-            syncBothAlgorithms();
+            syncAMLFromData();
         }
 
         return baccaratData;
@@ -1457,7 +1505,7 @@ app.use((req, res, next) => {
 // ---------- ROOT ----------
 app.get('/', (req, res) => {
     res.json({
-        name: 'Baccarat API Server — 2 Thuật toán song song',
+        name: 'Baccarat API — 2 Thuật toán song song',
         status: 'running',
         algorithms: {
             OLD: {
@@ -1465,7 +1513,7 @@ app.get('/', (req, res) => {
                 endpoints: ['/api/predict', '/api/predict/:table', '/api/aml-status']
             },
             VIP: {
-                name: 'VIP_AML_V2_BRAKE (thuật toán mới — có Fail-Safe Brake chống sai >3-4 phiên)',
+                name: 'VIP_AML_V2_BRAKE (thuật toán mới — Fail-Safe Brake)',
                 endpoints: ['/api/vip/predict', '/api/vip/predict/:table', '/api/vip/status', '/api/vip/compare/:table']
             }
         },
@@ -1476,8 +1524,8 @@ app.get('/', (req, res) => {
         endpoints: [
             '/api/baccarat', '/api/baccarat/:table', '/api/latest',
             '/api/predict', '/api/predict/:table', '/api/cau-catalog', '/api/aml-status',
-            '/api/vip/predict', '/api/vip/predict/:table', '/api/vip/status', '/api/vip/compare/:table',
-            '/api/compare-all'
+            '/api/vip/predict', '/api/vip/predict/:table', '/api/vip/status',
+            '/api/vip/compare/:table', '/api/compare-all'
         ]
     });
 });
@@ -1502,7 +1550,7 @@ app.get('/api/latest', (req, res) => {
     res.json({ success: true, data: latest.slice(0, 10), lastUpdate });
 });
 
-// ---------- THUẬT TOÁN CŨ (giữ nguyên endpoint) ----------
+// ---------- THUẬT TOÁN CŨ ----------
 app.get('/api/predict', (req, res) => {
     const all = aml.getAllPredictions();
     res.json({
@@ -1545,7 +1593,7 @@ app.get('/api/vip/predict', (req, res) => {
     res.json({
         success: true,
         algorithm: 'VIP_AML_V2_BRAKE',
-        description: 'Thuật toán mới: bẻ hướng + ban mẫu sai + phanh chống sai >3-4 phiên liên tiếp',
+        description: 'Thuật toán mới: bẻ hướng + ban mẫu sai + phanh chống sai >3-4 phiên',
         total: all.length,
         data: all,
         summary: vip.summary(),
@@ -1578,7 +1626,8 @@ app.get('/api/vip/status', (req, res) => {
             PENALTY_WRONG: VIP.PENALTY_WRONG,
             BOOST_CORRECT: VIP.BOOST_CORRECT,
             DECAY: VIP.DECAY,
-            DECAY_EVERY: VIP.DECAY_EVERY
+            DECAY_EVERY: VIP.DECAY_EVERY,
+            bias_protection: 'neutral_tie_break_symmetric_BP'
         },
         tables: Array.from(vip.tables.keys()).slice(0, 100)
     });
@@ -1609,13 +1658,7 @@ app.get('/api/compare-all', (req, res) => {
             "brake_active": newP ? newP['brake_active'] : null
         });
     }
-    res.json({
-        success: true,
-        total: rows.length,
-        match,
-        mismatch,
-        data: rows
-    });
+    res.json({ success: true, total: rows.length, match, mismatch, data: rows });
 });
 
 // ======================
@@ -1626,6 +1669,7 @@ async function start() {
     console.log('BACCARAT API — 2 THUẬT TOÁN SONG SONG');
     console.log('  [1] OLD: BCR-AML (giữ nguyên code gốc)');
     console.log('  [2] VIP: VIP_AML_V2_BRAKE (mới — chống sai >3-4 phiên)');
+    console.log('  [✓] Neutral tie-break — KHÔNG thiên vị B/P');
     console.log('==================================================');
 
     aml.loadFromFile();
@@ -1649,7 +1693,6 @@ async function start() {
         console.log(`[OK] Đã lấy ${baccaratData.length} bàn`);
     }
 
-    // Lưu định kỳ cả 2 thuật toán
     setInterval(() => {
         aml.saveToFile();
         vip.saveToFile();
