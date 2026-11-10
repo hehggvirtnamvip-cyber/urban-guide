@@ -39,7 +39,7 @@ const DECAY_EVERY = 50;
 const RATIO_MIN = 55.0;
 const RATIO_MAX = 89.0;
 const AML_LEARN_DURATION_MS = 10 * 60 * 1000;
-const AML_SAVE_INTERVAL_MS  = 60 * 1000; // 60s thay vì 30s để giảm I/O trên Render
+const AML_SAVE_INTERVAL_MS  = 60 * 1000;
 
 // ============================================================
 // DANH MỤC CẦU
@@ -386,8 +386,6 @@ class AMLManager {
 
 // ============================================================
 // THUẬT TOÁN VIP MỚI – MARKOV CHAIN BẬC CAO + ENTROPY BALANCE
-// Không thiên vị B hay P. Dựa hoàn toàn vào dữ liệu thực tế.
-// 4 lớp: Markov 1-5 bậc | Entropy cân bằng | Momentum | Anti-bias
 // ============================================================
 class VIPPredictor {
     constructor() {
@@ -414,7 +412,7 @@ class VIPPredictor {
         if (total === 0) return 1.0;
         let H = 0;
         for (const k of ['B','P','T']) { const p = dist[k]/total; if (p > 0) H -= p * Math.log2(p); }
-        return H / Math.log2(3); // chuẩn hóa [0,1]
+        return H / Math.log2(3);
     }
     _markovScore(order) {
         const H = this.history, n = H.length;
@@ -442,7 +440,6 @@ class VIPPredictor {
         recent.forEach(e => { if (cnt[e.pred] !== undefined) cnt[e.pred]++; });
         const n = recent.length;
         const corr = { B: 0, P: 0, T: 0 };
-        // Nếu dự đoán B hoặc P lệch quá 15% so với lý tưởng 45% → kéo ngược lại
         if (cnt.B/n - 0.45 > 0.15) corr.B = -0.08;
         if (cnt.P/n - 0.45 > 0.15) corr.P = -0.08;
         return corr;
@@ -452,7 +449,6 @@ class VIPPredictor {
         if (n < 3) {
             return { pred: 'B', prob: { B: 0.45, P: 0.45, T: 0.10 }, confidence: 0.45, pct: '55.0%', source: 'insufficient_data', note: 'Cần thêm dữ liệu' };
         }
-        // Lớp 1: Markov tổng hợp
         const mW = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30 };
         let totalW = 0;
         const ms = { B: 0, P: 0, T: 0 };
@@ -467,16 +463,12 @@ class VIPPredictor {
         }
         if (totalW > 0) { ms.B /= totalW; ms.P /= totalW; ms.T /= totalW; }
         else {
-            // fallback: tần suất toàn bộ
             const cnt = { B: 0, P: 0, T: 0 };
             H.forEach(r => cnt[r]++);
             ms.B = cnt.B/n; ms.P = cnt.P/n; ms.T = cnt.T/n;
         }
-        // Lớp 2: Momentum
         const mom = this._momentum() || { B: 0.45, P: 0.45, T: 0.10 };
-        // Lớp 3: Anti-bias
         const bias = this._antiBias();
-        // Tổng hợp: Markov 65% + Momentum 35% + correction
         const combined = {
             B: Math.max(0, ms.B*0.65 + mom.B*0.35 + bias.B),
             P: Math.max(0, ms.P*0.65 + mom.P*0.35 + bias.P),
@@ -671,12 +663,11 @@ async function fetchBaccaratData() {
             });
             lastUpdate = new Date().toISOString();
             syncAllFromData();
-            loginRetryCount = 0; // reset sau khi thành công
+            loginRetryCount = 0;
         }
         return baccaratData;
     } catch(err) {
         console.error('Fetch error:', err.message);
-        // Tự động re-login khi session hết hạn
         loginRetryCount++;
         if (loginRetryCount >= 3) {
             console.log('[AUTO] Re-login do session hết hạn...');
@@ -698,8 +689,6 @@ async function autoUpdate() {
 
 // ======================
 // SELF PING – CHỐNG RENDER NGỦ ĐÔNG
-// Render free tier tắt sau 15 phút không có request
-// Self-ping mỗi 10 phút để giữ server luôn chạy
 // ======================
 function startSelfPing(port) {
     const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
@@ -711,7 +700,7 @@ function startSelfPing(port) {
                 console.log(`[PING] Self-ping ${res.statusCode} OK`);
             }).on('error', () => {});
         } catch(e) {}
-    }, 10 * 60 * 1000); // mỗi 10 phút
+    }, 10 * 60 * 1000);
     console.log(`[PING] Self-ping bắt đầu → ${SELF_URL}/health`);
 }
 
@@ -721,7 +710,6 @@ function startSelfPing(port) {
 const app = express();
 app.use(express.json());
 
-// CORS – mở hoàn toàn cho app khác gọi được
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -730,12 +718,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check – Render dùng endpoint này để kiểm tra server còn sống
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', uptime: process.uptime(), lastUpdate, tables: baccaratData.length });
 });
 
-// Root
 app.get('/', (req, res) => {
     res.json({
         name: 'Baccarat API Server',
@@ -756,7 +742,6 @@ app.get('/', (req, res) => {
     });
 });
 
-// ---- ENDPOINT CŨ ----
 app.get('/api/baccarat', (req, res) => {
     res.json({ success: true, data: baccaratData, lastUpdate, total: baccaratData.length });
 });
@@ -783,7 +768,6 @@ app.get('/api/aml-status', (req, res) => {
     res.json({ success: true, learningStartTime: aml.learningStartTime, isLearning: aml.isLearningPhase(), lastSaveTime: aml.lastSaveTime, totalBooks: aml.books.size, tables: Array.from(aml.books.keys()).slice(0,100) });
 });
 
-// ---- ENDPOINT VIP MỚI ----
 app.get('/api/vip-predict', (req, res) => {
     const all = vip.getAllPredictions();
     res.json({ success: true, algorithm: 'VIP-Markov-Entropy v1.0', total: all.length, data: all, lastUpdate });
@@ -822,7 +806,6 @@ async function start() {
         console.log(`[OK] Loaded ${baccaratData.length} tables`);
     }
 
-    // Lưu định kỳ
     setInterval(() => { aml.saveToFile(); vip.saveToFile(); }, AML_SAVE_INTERVAL_MS);
     aml.saveToFile();
     vip.saveToFile();
