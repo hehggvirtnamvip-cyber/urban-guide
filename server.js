@@ -21,199 +21,6 @@ let baccaratData = [];
 let lastUpdate = null;
 
 // ============================================================
-// TÀI LIỆU CẦU BACCARAT FULL 5 PHẦN
-// ============================================================
-const CAU_DOCUMENT = {
-    PHAN_1_DANH_MUC: {
-        title: "PHẦN 1 – DANH MỤC TOÀN BỘ CÁC LOẠI CẦU",
-        items: [
-            { id: 1, ten: "Cầu bệt (cầu dọc)", mo_ta: "Chuỗi kết quả cùng một cửa liên tiếp từ 4-5 phiên trở lên. Ví dụ: BBBBBB hoặc PPPPPP" },
-            { id: 2, ten: "Cầu 1-1 (cầu ngang, cầu đối xứng)", mo_ta: "Kết quả xen kẽ đều đặn B-P-B-P-B-P. Dấu hiệu nhận biết rõ ràng nhất trong Baccarat." },
-            { id: 3, ten: "Cầu 1-2", mo_ta: "Chuỗi 1 B rồi 2 P, lặp lại: B-PP-B-PP-B-PP" },
-            { id: 4, ten: "Cầu 2-1", mo_ta: "Chuỗi 2 B rồi 1 P, lặp lại: BB-P-BB-P-BB-P" },
-            { id: 5, ten: "Cầu 1-3", mo_ta: "Chuỗi 1 B rồi 3 P, lặp lại: B-PPP-B-PPP" },
-            { id: 6, ten: "Cầu 3-1", mo_ta: "Chuỗi 3 B rồi 1 P, lặp lại: BBB-P-BBB-P" },
-            { id: 7, ten: "Cầu 2-2", mo_ta: "Chuỗi 2 B rồi 2 P, lặp lại: BB-PP-BB-PP" },
-            { id: 8, ten: "Cầu 3-3", mo_ta: "Chuỗi 3 B rồi 3 P, lặp lại: BBB-PPP-BBB-PPP" },
-            { id: 9, ten: "Cầu 4-4", mo_ta: "Chuỗi 4 B rồi 4 P, lặp lại: BBBB-PPPP-BBBB-PPPP" },
-            { id: 10, ten: "Cầu nghiêng / cầu chéo", mo_ta: "Xu hướng kết quả nghiêng về một cửa trong nhiều phiên, không theo pattern cố định nhưng có độ dài bệt tăng dần." },
-            { id: 11, ten: "Cầu rồng (cầu dài bất thường)", mo_ta: "Chuỗi bệt kéo dài từ 8-10 phiên trở lên, hiếm gặp nhưng khi xuất hiện thường gây bất ngờ." },
-            { id: 12, ten: "Cầu gãy (cầu đứt quãng)", mo_ta: "Pattern đang đều bỗng nhiên bị phá vỡ bởi một kết quả khác, sau đó có thể quay lại pattern cũ." },
-            { id: 13, ten: "Cầu hỗn hợp / cầu không ổn định", mo_ta: "Không có pattern rõ ràng, kết quả thay đổi liên tục không theo quy luật nào." },
-            { id: 14, ten: "Cầu đảo (bẻ hướng)", mo_ta: "Cầu đang bệt một cửa bỗng đổi sang cửa ngược lại và duy trì bệt mới." },
-            { id: 15, ten: "Cầu soi cầu (cầu ảo, cầu mồi)", mo_ta: "Pattern ngắn xuất hiện rồi biến mất, đánh lừa người chơi. Thường chỉ kéo dài 3-4 phiên." },
-            { id: 16, ten: "Cầu bệt xen kẽ", mo_ta: "Các đoạn bệt ngắn xen kẽ với nhau: BBB-PPPP-BB-PPP" },
-            { id: 17, ten: "Cầu 1-1-2 (phức hợp)", mo_ta: "Chuỗi B-P-BB lặp lại: B-P-BB-B-P-BB" },
-            { id: 18, ten: "Cầu 2-1-1 (phức hợp)", mo_ta: "Chuỗi BB-P-B lặp lại: BB-P-B-BB-P-B" },
-            { id: 19, ten: "Cầu 1-2-1 (phức hợp)", mo_ta: "Chuỗi B-PP-B lặp lại: B-PP-B-B-PP-B" },
-            { id: 20, ten: "Cầu tam giác", mo_ta: "Pattern tăng dần độ dài: B-PP-BBB-PPPP (mỗi cửa tăng thêm 1)" },
-            { id: 21, ten: "Cầu zigzag", mo_ta: "Kết quả nhảy không đều: BB-P-BBB-PP-B-PPP" },
-            { id: 22, ten: "Cầu chuỗi (streak)", mo_ta: "Tương tự cầu bệt nhưng tập trung vào đếm số phiên liên tiếp của một cửa." },
-            { id: 23, ten: "Cầu đôi (double)", mo_ta: "Kết quả luôn đi theo cặp: BB-PP-BB-PP (tương tự 2-2)" },
-            { id: 24, ten: "Cầu 1-1-1-2", mo_ta: "Chuỗi B-P-B-BB lặp lại, biến thể của cầu phức hợp" },
-            { id: 25, ten: "Cầu đối xứng gương", mo_ta: "Pattern đối xứng qua trục: B-PP-B-B-PP-B" }
-        ]
-    },
-    PHAN_2_PHAN_TICH: {
-        title: "PHẦN 2 – CÁCH PHÂN TÍCH & PHÂN BIỆT TỪNG LOẠI CẦU",
-        items: [
-            { ten: "Cầu bệt", dau_hieu: "≥4 kết quả giống nhau liên tiếp", phan_biet: "Khác cầu rồng ở độ dài (bệt 4-7, rồng ≥8)", vi_du: "BBBBBB", do_dai_min: 4, xac_suat: "~12-15% xuất hiện trong 100 phiên" },
-            { ten: "Cầu 1-1", dau_hieu: "B-P-B-P-B-P chính xác", phan_biet: "Khác zigzag ở tính đều đặn tuyệt đối", vi_du: "BPBPBPBP", do_dai_min: 4, xac_suat: "~25% trong 100 phiên" },
-            { ten: "Cầu 1-2", dau_hieu: "B-PP lặp lại ≥2 lần", phan_biet: "Khác 2-1 ở thứ tự cửa", vi_du: "BPPBPPBPP", do_dai_min: 6, xac_suat: "~8%" },
-            { ten: "Cầu 2-1", dau_hieu: "BB-P lặp lại ≥2 lần", phan_biet: "Khác 1-2 ở vị trí cửa đơn", vi_du: "BBPBBPBBP", do_dai_min: 6, xac_suat: "~8%" },
-            { ten: "Cầu 1-3", dau_hieu: "B-PPP lặp lại", phan_biet: "Chuỗi đơn ngắn hơn chuỗi bệt", vi_du: "BPPPBPPPB", do_dai_min: 8, xac_suat: "~4%" },
-            { ten: "Cầu 3-1", dau_hieu: "BBB-P lặp lại", phan_biet: "Tương tự 1-3 nhưng đảo cửa", vi_du: "BBB-PBBB-P", do_dai_min: 8, xac_suat: "~4%" },
-            { ten: "Cầu 2-2", dau_hieu: "BB-PP lặp lại ≥2 lần", phan_biet: "Khác 1-1 ở độ dài nhóm", vi_du: "BBPPBBPP", do_dai_min: 8, xac_suat: "~6%" },
-            { ten: "Cầu 3-3", dau_hieu: "BBB-PPP lặp lại", phan_biet: "Độ dài nhóm = 3", vi_du: "BBBPPPBBBPPP", do_dai_min: 12, xac_suat: "~2%" },
-            { ten: "Cầu 4-4", dau_hieu: "BBBB-PPPP lặp lại", phan_biet: "Độ dài nhóm = 4", vi_du: "BBBBPPPPBBBB", do_dai_min: 16, xac_suat: "~1%" },
-            { ten: "Cầu nghiêng", dau_hieu: "Tỉ lệ B/P lệch >65/35 trong 20 phiên", phan_biet: "Không có pattern cố định nhưng xu hướng rõ", vi_du: "BBPBBBPBBBPBB", do_dai_min: 15, xac_suat: "~20%" },
-            { ten: "Cầu rồng", dau_hieu: "≥8 kết quả giống nhau", phan_biet: "Khác cầu bệt ở độ dài cực đoan", vi_du: "BBBBBBBBBB", do_dai_min: 8, xac_suat: "<1%" },
-            { ten: "Cầu gãy", dau_hieu: "Pattern đều bỗng bị phá bởi 1 kết quả khác", phan_biet: "Sau khi gãy có thể quay lại pattern cũ", vi_du: "BPBPBP-B-BPBP", do_dai_min: 5, xac_suat: "~15%" },
-            { ten: "Cầu hỗn hợp", dau_hieu: "Không tìm được pattern trong 10 phiên gần nhất", phan_biet: "Không có quy luật rõ ràng", vi_du: "BPBBPBPBPPB", do_dai_min: 10, xac_suat: "~30%" },
-            { ten: "Cầu đảo", dau_hieu: "Bệt cửa này chuyển sang bệt cửa kia", phan_biet: "Có 2 đoạn bệt nối tiếp nhau", vi_du: "BBBB-PPPP", do_dai_min: 8, xac_suat: "~5%" },
-            { ten: "Cầu soi cầu", dau_hieu: "Pattern xuất hiện 3-4 phiên rồi biến mất", phan_biet: "Không duy trì được qua 5 phiên", vi_du: "BPBP-BB-BPBP", do_dai_min: 4, xac_suat: "~20%" },
-            { ten: "Cầu bệt xen kẽ", dau_hieu: "Nhiều đoạn bệt ngắn liên tiếp", phan_biet: "Khác cầu đảo ở độ dài đoạn ngắn hơn", vi_du: "BBB-PPPP-BB-PPP", do_dai_min: 10, xac_suat: "~10%" },
-            { ten: "Cầu 1-1-2", dau_hieu: "B-P-BB lặp lại", phan_biet: "Pattern 3 nhóm phức hợp", vi_du: "BPBBBPBBB", do_dai_min: 9, xac_suat: "~3%" },
-            { ten: "Cầu 2-1-1", dau_hieu: "BB-P-B lặp lại", phan_biet: "Bắt đầu bằng nhóm đôi", vi_du: "BBPBBBPB", do_dai_min: 9, xac_suat: "~3%" },
-            { ten: "Cầu 1-2-1", dau_hieu: "B-PP-B lặp lại", phan_biet: "Đối xứng qua nhóm giữa", vi_du: "BPPBBPPB", do_dai_min: 9, xac_suat: "~3%" },
-            { ten: "Cầu tam giác", dau_hieu: "Độ dài nhóm tăng dần đều", phan_biet: "Mỗi lần lặp lại tăng thêm 1 đơn vị", vi_du: "B-PP-BBB-PPPP", do_dai_min: 10, xac_suat: "~1%" },
-            { ten: "Cầu zigzag", dau_hieu: "Kết quả nhảy không đều nhưng có xu hướng xen kẽ", phan_biet: "Khác 1-1 ở tính không đều đặn", vi_du: "BBPBBBPPBPPP", do_dai_min: 8, xac_suat: "~8%" },
-            { ten: "Cầu chuỗi", dau_hieu: "Đếm số phiên liên tiếp cùng cửa", phan_biet: "Tương tự cầu bệt, tập trung vào độ dài streak", vi_du: "BBBBB-PPPP-BBBBB", do_dai_min: 4, xac_suat: "Biến thể của bệt" },
-            { ten: "Cầu đôi", dau_hieu: "Kết quả luôn đi cặp 2-2", phan_biet: "Tương tự 2-2 nhưng nhấn mạnh tính cặp đôi", vi_du: "BBPPBBPP", do_dai_min: 8, xac_suat: "~6%" },
-            { ten: "Cầu 1-1-1-2", dau_hieu: "B-P-B-BB lặp lại", phan_biet: "Biến thể phức hợp 4 nhóm", vi_du: "BPBBBPBB", do_dai_min: 10, xac_suat: "~2%" },
-            { ten: "Cầu đối xứng gương", dau_hieu: "Pattern đối xứng qua trục giữa", phan_biet: "Đọc xuôi = đọc ngược", vi_du: "BPPBBPPB", do_dai_min: 8, xac_suat: "~2%" }
-        ]
-    },
-    PHAN_3_THEO_CAU: {
-        title: "PHẦN 3 – CÁCH THEO CẦU",
-        nguyen_tac: [
-            "Chỉ theo cầu khi đã xác nhận đủ độ dài tối thiểu (≥4 phiên với cầu đơn giản, ≥6 với cầu phức hợp)",
-            "Không theo cầu khi cầu đang ở phiên thứ 5-6 của cầu bệt (rủi ro gãy cao)",
-            "Luôn theo xu hướng chính, không đoán bừa",
-            "Xác định rõ cầu đang chạy trước khi đặt cược",
-            "Không đổi cầu giữa chừng khi chưa có dấu hiệu gãy rõ ràng"
-        ],
-        entry_points: [
-            { cau: "Cầu bệt", entry: "Sau phiên thứ 4 cùng cửa, đặt theo cửa đó đến khi gãy" },
-            { cau: "Cầu 1-1", entry: "Sau 2 chu kỳ B-P-B-P hoàn chỉnh, đặt ngược cửa vừa ra" },
-            { cau: "Cầu 1-2 / 2-1", entry: "Sau 2 chu kỳ hoàn chỉnh, xác định vị trí trong chu kỳ để đặt" },
-            { cau: "Cầu 2-2", entry: "Sau 2 chu kỳ BB-PP, đặt theo vị trí chu kỳ hiện tại" },
-            { cau: "Cầu 3-3", entry: "Sau 1.5 chu kỳ, xác định đang ở nhóm nào" },
-            { cau: "Cầu nghiêng", entry: "Sau 15 phiên, nếu tỉ lệ lệch >65/35 thì theo cửa mạnh" },
-            { cau: "Cầu rồng", entry: "Sau phiên thứ 6-7, cân nhắc theo tiếp hoặc dừng tùy độ tin cậy" },
-            { cau: "Cầu gãy", entry: "Sau khi gãy 1-2 phiên, quan sát xem có quay lại pattern cũ không" },
-            { cau: "Cầu hỗn hợp", entry: "KHÔNG theo, chờ cầu mới hình thành" },
-            { cau: "Cầu phức hợp", entry: "Sau 2 chu kỳ đầy đủ, đặt theo vị trí trong chu kỳ" }
-        ],
-        quan_ly_von: [
-            "Chia vốn thành 20-30 phần bằng nhau cho mỗi session",
-            "Mỗi lần cược chỉ dùng 1-2% tổng vốn",
-            "Khi thắng 3 phiên liên tiếp, tăng nhẹ 1.5x (không quá 2x)",
-            "Khi thua 2 phiên liên tiếp, giảm về mức cơ bản",
-            "Không bao giờ all-in dù cầu đẹp đến đâu",
-            "Đặt stop-loss 20% vốn/ngày, stop-win 30% vốn/ngày"
-        ],
-        khi_nao_dung: [
-            "Cầu đã chạy ≥6 phiên (rủi ro gãy cao)",
-            "Cầu bị gãy 2 lần liên tiếp trong 5 phiên",
-            "Đã thua 2 phiên liên tiếp theo cầu",
-            "Đạt stop-loss hoặc stop-win trong ngày",
-            "Cầu chuyển sang hỗn hợp không rõ ràng",
-            "Cảm thấy không chắc chắn về pattern hiện tại"
-        ]
-    },
-    PHAN_4_BE_CAU: {
-        title: "PHẦN 4 – CÁCH BẺ CẦU",
-        dinh_nghia: "Bẻ cầu là đặt cược ngược lại với xu hướng cầu đang chạy, nhằm bắt thời điểm cầu gãy để đổi hướng.",
-        dau_hieu_sap_gay: [
-            "Cầu bệt đã dài ≥6-7 phiên",
-            "Cầu 1-1 đã chạy ≥8 phiên liên tiếp",
-            "Cầu phức hợp đã lặp ≥3 chu kỳ hoàn chỉnh",
-            "Tỉ lệ thắng của cầu giảm dần qua các phiên",
-            "Có dấu hiệu 'mồi' - pattern bị phá nhẹ rồi quay lại",
-            "Người chơi xung quanh đồng loạt theo một cửa (dấu hiệu đám đông sai)"
-        ],
-        thoi_diem_be: [
-            "Sau 6-7 phiên bệt liên tiếp - bẻ nhẹ 1 phiên",
-            "Sau khi cầu 1-1 chạy 8 phiên - bẻ 1 phiên thử",
-            "Khi xuất hiện 2 kết quả khác biệt liên tiếp trong pattern đang đều",
-            "Khi cầu phức hợp hoàn thành đúng số chu kỳ dự kiến"
-        ],
-        chien_thuat: [
-            "Bẻ nhẹ: Đặt 50% vốn bình thường ngược cầu, nếu thắng tiếp tục bẻ, nếu thua quay lại theo cầu",
-            "Bẻ mạnh: Đặt 100% vốn khi có ≥2 dấu hiệu gãy đồng thời",
-            "Bẻ đón đầu: Đặt ngược ở phiên cuối của chu kỳ dự kiến",
-            "Bẻ theo đám đông: Đặt ngược lại số đông khi họ đồng loạt theo một cửa"
-        ],
-        rui_ro: [
-            "Bẻ sai → mất vốn + mất cơ hội theo cầu đúng",
-            "Bẻ quá sớm → cầu vẫn tiếp tục, thua liên tiếp",
-            "Bẻ quá muộn → cầu đã gãy từ trước, đặt ngược lại thành theo cầu mới",
-            "Cách phòng: Luôn bẻ nhẹ trước (50% vốn), xác nhận rồi mới bẻ mạnh"
-        ],
-        ket_hop: [
-            "Theo cầu chính 70% vốn, dự phòng 30% để bẻ khi có dấu hiệu",
-            "Khi cầu đang mạnh: chỉ theo, không bẻ",
-            "Khi cầu có dấu hiệu yếu: giảm vốn theo, chuẩn bị bẻ",
-            "Khi bẻ thành công: chuyển sang theo cầu mới ngay"
-        ]
-    },
-    PHAN_5_PBPT: {
-        title: "PHẦN 5 – CẦU PBPT (PHÂN BỐ – PHÂN TÍCH) ĐẦY ĐỦ",
-        dinh_nghia: "PBPT (Phân Bố - Phân Tích) là phương pháp phân tích sự phân bố của B và P trong một khoảng phiên, từ đó đưa ra dự đoán dựa trên nguyên lý cân bằng thống kê.",
-        nguyen_ly: [
-            "Trong dài hạn, tỉ lệ B/P xấp xỉ 50/50 (thực tế ~45.86% B, 44.62% P, 9.52% T)",
-            "Khi một cửa xuất hiện quá nhiều, cửa còn lại có xu hướng bù đắp",
-            "Phân bố không đều tạo ra cơ hội dự đoán",
-            "Kết hợp phân bố ngắn hạn (10 phiên) và dài hạn (50 phiên) để đánh giá"
-        ],
-        cac_dang: [
-            { ten: "PBPT cân bằng", mo_ta: "Tỉ lệ B/P trong khoảng 45-55% ở 20-50 phiên gần nhất", cach_doc: "Không có xu hướng rõ, chờ đợi", vi_du: "10B-10P trong 20 phiên" },
-            { ten: "PBPT lệch nhẹ", mo_ta: "Tỉ lệ 55-65% nghiêng về một cửa", cach_doc: "Có xu hướng nhẹ, theo cửa mạnh nhưng thận trọng", vi_du: "13B-7P trong 20 phiên" },
-            { ten: "PBPT lệch mạnh", mo_ta: "Tỉ lệ 65-75% nghiêng rõ về một cửa", cach_doc: "Theo cửa mạnh, chuẩn bị bẻ khi vượt 70%", vi_du: "14B-6P trong 20 phiên" },
-            { ten: "PBPT cực lệch", mo_ta: "Tỉ lệ >75% một cửa", cach_doc: "Rất nguy hiểm, có thể gãy bất cứ lúc nào, ưu tiên bẻ", vi_du: "16B-4P trong 20 phiên" },
-            { ten: "PBPT bù trừ", mo_ta: "Sau giai đoạn lệch, cửa yếu bùng nổ để cân bằng", cach_doc: "Đặt cửa yếu sau khi lệch kéo dài", vi_du: "15B-5P → 5B-10P" },
-            { ten: "PBPT chu kỳ", mo_ta: "B/P phân bố theo chu kỳ đều đặn", cach_doc: "Xác định vị trí trong chu kỳ để đặt", vi_du: "BBPPBBPPBBPP" },
-            { ten: "PBPT nhiễu", mo_ta: "Phân bố ngẫu nhiên, không có quy luật", cach_doc: "Không đặt, chờ phân bố mới", vi_du: "BPBBPBPBPPB" },
-            { ten: "PBPT tầng", mo_ta: "Phân bố theo tầng: tầng đầu lệch B, tầng sau lệch P", cach_doc: "Đọc xu hướng từng tầng 10 phiên", vi_du: "Tầng 1: 8B-2P, Tầng 2: 3B-7P" }
-        ],
-        cach_doc: [
-            "Bước 1: Đếm số B và P trong 20 phiên gần nhất",
-            "Bước 2: Tính tỉ lệ % của từng cửa",
-            "Bước 3: So sánh với 50/50 để xác định độ lệch",
-            "Bước 4: Kiểm tra xu hướng 10 phiên gần nhất (ngắn hạn)",
-            "Bước 5: Kết hợp ngắn hạn + dài hạn để quyết định theo hay bẻ",
-            "Bước 6: Xác định điểm entry tối ưu"
-        ],
-        ap_dung: [
-            "PBPT cân bằng → chờ cầu rõ ràng mới đặt",
-            "PBPT lệch nhẹ → theo cửa mạnh với vốn nhỏ",
-            "PBPT lệch mạnh → theo cửa mạnh với vốn trung bình, chuẩn bị bẻ",
-            "PBPT cực lệch → ưu tiên bẻ, đặt ngược cửa mạnh với vốn nhỏ thăm dò",
-            "PBPT bù trừ → đặt cửa yếu (đang bù trừ)",
-            "PBPT chu kỳ → đặt theo vị trí chu kỳ",
-            "PBPT nhiễu → không đặt",
-            "PBPT tầng → đọc từng tầng, đặt theo tầng hiện tại"
-        ],
-        vi_du: [
-            "Ví dụ PBPT lệch mạnh: 20 phiên có 14B-6P → theo B, nhưng khi lên 16B-4P thì bắt đầu bẻ nhẹ sang P",
-            "Ví dụ PBPT bù trừ: 30 phiên có 22B-8P, 10 phiên tiếp theo có 3B-7P → P đang bù trừ, đặt P",
-            "Ví dụ PBPT chu kỳ: 20 phiên có 10B-10P nhưng phân bố BBPPBBPP... → đọc chu kỳ, đặt theo vị trí"
-        ],
-        bang_tong_hop: [
-            { dang: "Cân bằng", ti_le: "45-55%", hanh_dong: "Chờ", rui_ro: "Thấp" },
-            { dang: "Lệch nhẹ", ti_le: "55-65%", hanh_dong: "Theo nhẹ", rui_ro: "Thấp-TB" },
-            { dang: "Lệch mạnh", ti_le: "65-75%", hanh_dong: "Theo + chuẩn bị bẻ", rui_ro: "Trung bình" },
-            { dang: "Cực lệch", ti_le: ">75%", hanh_dong: "Ưu tiên bẻ", rui_ro: "Cao" },
-            { dang: "Bù trừ", ti_le: "Đảo chiều", hanh_dong: "Đặt cửa yếu", rui_ro: "TB-Cao" },
-            { dang: "Chu kỳ", ti_le: "Đều đặn", hanh_dong: "Theo chu kỳ", rui_ro: "Thấp" },
-            { dang: "Nhiễu", ti_le: "Ngẫu nhiên", hanh_dong: "Không đặt", rui_ro: "Rất cao" },
-            { dang: "Tầng", ti_le: "Biến đổi", hanh_dong: "Đọc từng tầng", rui_ro: "Trung bình" }
-        ]
-    }
-};
-
-// ============================================================
 // BCR – ADAPTIVE MULTI-PATTERN LEARNING (AML)
 // ============================================================
 const MIN_PATTERN_LEN = 4;
@@ -227,7 +34,42 @@ const RATIO_MIN = 55.0;
 const RATIO_MAX = 89.0;
 
 const AML_STATE_FILE = path.join(__dirname, 'aml_state.json');
+const AML_STATE_BACKUP = path.join(__dirname, 'aml_state_backup.json');
+const AML_LEARN_DURATION_MS = 10 * 60 * 1000; // 10 phút
+const AML_SAVE_INTERVAL_MS = 30 * 1000; // 30 giây lưu 1 lần
 
+// ============================================================
+// DANH MỤC CẦU BACCARAT (FULL)
+// ============================================================
+const CAU_CATALOG = {
+    'cau_bet': { name: 'Cầu bệt (cầu dọc)', desc: 'Chuỗi kết quả liên tiếp cùng 1 cửa (B hoặc P) từ 4 phiên trở lên.' },
+    'cau_1_1': { name: 'Cầu 1-1 (cầu ngang, đối xứng)', desc: 'Xen kẽ B-P-B-P hoặc P-B-P-B liên tục.' },
+    'cau_1_2': { name: 'Cầu 1-2', desc: 'Chu kỳ 1 B rồi 2 P, hoặc ngược lại.' },
+    'cau_2_1': { name: 'Cầu 2-1', desc: 'Chu kỳ 2 B rồi 1 P, hoặc ngược lại.' },
+    'cau_1_3': { name: 'Cầu 1-3', desc: 'Chu kỳ 1 B rồi 3 P, hoặc ngược lại.' },
+    'cau_3_1': { name: 'Cầu 3-1', desc: 'Chu kỳ 3 B rồi 1 P, hoặc ngược lại.' },
+    'cau_2_2': { name: 'Cầu 2-2', desc: 'Chu kỳ 2 B rồi 2 P, hoặc ngược lại.' },
+    'cau_3_3': { name: 'Cầu 3-3', desc: 'Chu kỳ 3 B rồi 3 P, hoặc ngược lại.' },
+    'cau_4_4': { name: 'Cầu 4-4', desc: 'Chu kỳ 4 B rồi 4 P, hoặc ngược lại.' },
+    'cau_nghieng': { name: 'Cầu nghiêng / cầu chéo', desc: 'Xu hướng lệch về 1 cửa trong nhiều phiên liên tiếp nhưng không đều.' },
+    'cau_rong': { name: 'Cầu rồng', desc: 'Chuỗi thắng liên tiếp rất dài (>=8 phiên) cùng 1 cửa.' },
+    'cau_gay': { name: 'Cầu gãy', desc: 'Cầu đang đều bỗng đứt quãng, xuất hiện cửa ngược lại.' },
+    'cau_hon_hop': { name: 'Cầu hỗn hợp / không ổn định', desc: 'Không có quy luật rõ ràng, kết quả nhảy loạn.' },
+    'cau_dao': { name: 'Cầu đảo (bẻ hướng)', desc: 'Cầu đang bệt bỗng đảo chiều sang cửa ngược lại.' },
+    'cau_soi': { name: 'Cầu soi (cầu ảo, cầu mồi)', desc: 'Cầu do nhà cái tạo ra để dụ người chơi, không bền.' },
+    'cau_bet_xen': { name: 'Cầu bệt xen kẽ', desc: 'Các đoạn bệt ngắn xen kẽ nhau.' },
+    'cau_1_1_2': { name: 'Cầu 1-1-2', desc: 'Chu kỳ 1-1-2 lặp lại.' },
+    'cau_2_1_1': { name: 'Cầu 2-1-1', desc: 'Chu kỳ 2-1-1 lặp lại.' },
+    'cau_1_2_1': { name: 'Cầu 1-2-1', desc: 'Chu kỳ 1-2-1 lặp lại.' },
+    'cau_tam_giac': { name: 'Cầu tam giác', desc: 'Kết quả tạo thành mô hình tam giác đối xứng.' },
+    'cau_zigzag': { name: 'Cầu zigzag', desc: 'Kết quả nhảy zic zắc liên tục.' },
+    'cau_chuoi': { name: 'Cầu chuỗi (streak)', desc: 'Chuỗi dài cùng 1 cửa, tương tự cầu bệt.' },
+    'cau_doi': { name: 'Cầu đôi (double)', desc: 'Mỗi cửa xuất hiện đúng 2 lần rồi đổi.' }
+};
+
+// ============================================================
+// PATTERN BOOK
+// ============================================================
 class PatternBook {
     constructor() {
         this.book = new Map();
@@ -458,9 +300,152 @@ class PatternBook {
     }
 }
 
+// ============================================================
+// CẦU ANALYZER – PHÂN TÍCH LOẠI CẦU
+// ============================================================
+class CauAnalyzer {
+    static analyze(history) {
+        if (!history || history.length === 0) return { type: 'unknown', label: 'Chưa có dữ liệu', pattern: '' };
+        const H = history;
+        const n = H.length;
+        const last = H[n - 1];
+
+        // Cầu bệt: >=4 cùng cửa
+        let streak = 1;
+        for (let i = n - 2; i >= 0; i--) {
+            if (H[i] === last) streak++;
+            else break;
+        }
+        if (streak >= 8) return { type: 'cau_rong', label: CAU_CATALOG.cau_rong.name, pattern: last.repeat(streak), streak };
+        if (streak >= 4) return { type: 'cau_bet', label: CAU_CATALOG.cau_bet.name, pattern: last.repeat(streak), streak };
+
+        // Cầu 1-1
+        if (n >= 6) {
+            let is11 = true;
+            for (let i = n - 1; i >= n - 6; i--) {
+                if (i > 0 && H[i] === H[i - 1]) { is11 = false; break; }
+            }
+            if (is11) return { type: 'cau_1_1', label: CAU_CATALOG.cau_1_1.name, pattern: H.slice(-6).join('') };
+        }
+
+        // Cầu 2-2
+        if (n >= 8) {
+            const seg = H.slice(-8).join('');
+            if (seg === 'BBPPBBPP' || seg === 'PPBBPPBB') return { type: 'cau_2_2', label: CAU_CATALOG.cau_2_2.name, pattern: seg };
+        }
+
+        // Cầu 3-3
+        if (n >= 12) {
+            const seg = H.slice(-12).join('');
+            if (seg === 'BBBPPPBBBPPP' || seg === 'PPPBBBPPPBBB') return { type: 'cau_3_3', label: CAU_CATALOG.cau_3_3.name, pattern: seg };
+        }
+
+        // Cầu 1-2 / 2-1
+        if (n >= 6) {
+            const seg = H.slice(-6).join('');
+            if (seg === 'BPPBPP' || seg === 'PBBPBB') return { type: 'cau_1_2', label: CAU_CATALOG.cau_1_2.name, pattern: seg };
+            if (seg === 'BBPBBP' || seg === 'PPBPPB') return { type: 'cau_2_1', label: CAU_CATALOG.cau_2_1.name, pattern: seg };
+        }
+
+        // Cầu zigzag
+        if (n >= 6) {
+            let zig = true;
+            for (let i = n - 1; i >= n - 5; i--) {
+                if (H[i] === H[i - 1]) { zig = false; break; }
+            }
+            if (zig) return { type: 'cau_zigzag', label: CAU_CATALOG.cau_zigzag.name, pattern: H.slice(-6).join('') };
+        }
+
+        // Cầu đảo
+        if (n >= 6 && streak >= 2) {
+            const before = H[n - streak - 1];
+            if (before && before !== last) {
+                // trước đó có streak ngược
+                let prevStreak = 1;
+                for (let i = n - streak - 2; i >= 0; i--) {
+                    if (H[i] === before) prevStreak++;
+                    else break;
+                }
+                if (prevStreak >= 3) return { type: 'cau_dao', label: CAU_CATALOG.cau_dao.name, pattern: before.repeat(prevStreak) + last.repeat(streak) };
+            }
+        }
+
+        // Cầu nghiêng
+        const last10 = H.slice(-10);
+        const b10 = last10.filter(x => x === 'B').length;
+        const p10 = last10.filter(x => x === 'P').length;
+        if (last10.length >= 8) {
+            if (b10 >= 7) return { type: 'cau_nghieng', label: CAU_CATALOG.cau_nghieng.name, pattern: last10.join('') };
+            if (p10 >= 7) return { type: 'cau_nghieng', label: CAU_CATALOG.cau_nghieng.name, pattern: last10.join('') };
+        }
+
+        // Cầu gãy: trước đó bệt, giờ đứt
+        if (n >= 6 && streak === 1) {
+            const before = H[n - 2];
+            let prevStreak = 1;
+            for (let i = n - 3; i >= 0; i--) {
+                if (H[i] === before) prevStreak++;
+                else break;
+            }
+            if (prevStreak >= 3) return { type: 'cau_gay', label: CAU_CATALOG.cau_gay.name, pattern: before.repeat(prevStreak) + last };
+        }
+
+        // Cầu đôi
+        if (n >= 6) {
+            const seg = H.slice(-6).join('');
+            if (seg === 'BBPPBB' || seg === 'PPBBPP' || seg === 'BBPPBB') return { type: 'cau_doi', label: CAU_CATALOG.cau_doi.name, pattern: seg };
+        }
+
+        // Cầu hỗn hợp
+        return { type: 'cau_hon_hop', label: CAU_CATALOG.cau_hon_hop.name, pattern: H.slice(-8).join('') };
+    }
+
+    static detectPBPT(history) {
+        // Phân bố - Phân tích
+        if (!history || history.length < 5) return { distribution: null, trend: null, symmetry: null };
+        const H = history;
+        const n = H.length;
+        const cnt = { B: 0, P: 0, T: 0 };
+        for (const ch of H) if (cnt[ch] !== undefined) cnt[ch]++;
+
+        const dist = {
+            B: cnt.B, P: cnt.P, T: cnt.T,
+            total: n,
+            pct_B: ((cnt.B / n) * 100).toFixed(1),
+            pct_P: ((cnt.P / n) * 100).toFixed(1),
+            pct_T: ((cnt.T / n) * 100).toFixed(1)
+        };
+
+        // Trend: so sánh 1/3 gần vs 1/3 xa
+        const third = Math.floor(n / 3);
+        let trend = 'stable';
+        if (third >= 3) {
+            const recentB = H.slice(-third).filter(x => x === 'B').length;
+            const oldB = H.slice(0, third).filter(x => x === 'B').length;
+            if (recentB - oldB >= 2) trend = 'B_up';
+            else if (oldB - recentB >= 2) trend = 'P_up';
+        }
+
+        // Symmetry: đối xứng
+        let symScore = 0;
+        const half = Math.floor(n / 2);
+        for (let i = 0; i < half; i++) {
+            if (H[i] === H[n - 1 - i]) symScore++;
+        }
+        const symmetry = { score: symScore, total: half, ratio: half > 0 ? (symScore / half) : 0 };
+
+        return { distribution: dist, trend, symmetry };
+    }
+}
+
+// ============================================================
+// AML MANAGER
+// ============================================================
 class AMLManager {
     constructor() {
         this.books = new Map();
+        this.learningStartTime = null;
+        this.lastSaveTime = null;
     }
 
     sync(tableName, resultString) {
@@ -549,12 +534,20 @@ class AMLManager {
         }
         if (!cau && n === 0) cau = '—';
 
+        const cauInfo = CauAnalyzer.analyze(H);
+        const pbpt = CauAnalyzer.detectPBPT(H);
+
         return {
             "bàn": tableName,
             "phiên": n,
             "cầu": cau,
+            "loại_cầu": cauInfo.label,
+            "cầu_pattern": cauInfo.pattern,
             "dự đoán": pred,
-            "tỉ lệ": percent.toFixed(1) + '%'
+            "tỉ lệ": percent.toFixed(1) + '%',
+            "phân_bố": pbpt.distribution,
+            "xu_hướng": pbpt.trend,
+            "đối_xứng": pbpt.symmetry
         };
     }
 
@@ -569,15 +562,28 @@ class AMLManager {
 
     saveToFile() {
         try {
-            const dump = {};
+            const dump = {
+                savedAt: new Date().toISOString(),
+                learningStartTime: this.learningStartTime,
+                books: {}
+            };
             for (const [t, e] of this.books) {
-                dump[t] = {
+                dump.books[t] = {
                     book: e.book.toJSON(),
                     lastKnownResult: e.lastKnownResult
                 };
             }
+
+            // Ghi backup trước
+            try {
+                if (fs.existsSync(AML_STATE_FILE)) {
+                    fs.copyFileSync(AML_STATE_FILE, AML_STATE_BACKUP);
+                }
+            } catch (e) {}
+
             fs.writeFileSync(AML_STATE_FILE, JSON.stringify(dump));
-            console.log(`[AML] Đã lưu state (${Object.keys(dump).length} bàn)`);
+            this.lastSaveTime = new Date();
+            console.log(`[AML] Đã lưu state (${Object.keys(dump.books).length} bàn) lúc ${this.lastSaveTime.toISOString()}`);
         } catch (err) {
             console.error('[AML] Lỗi lưu state:', err.message);
         }
@@ -585,19 +591,56 @@ class AMLManager {
 
     loadFromFile() {
         try {
-            if (!fs.existsSync(AML_STATE_FILE)) return false;
-            const dump = JSON.parse(fs.readFileSync(AML_STATE_FILE, 'utf8'));
-            for (const [t, obj] of Object.entries(dump)) {
-                this.books.set(t, {
-                    book: PatternBook.fromJSON(obj.book),
-                    lastKnownResult: obj.lastKnownResult || ''
-                });
+            if (!fs.existsSync(AML_STATE_FILE)) {
+                // thử backup
+                if (fs.existsSync(AML_STATE_BACKUP)) {
+                    const dump = JSON.parse(fs.readFileSync(AML_STATE_BACKUP, 'utf8'));
+                    this._restore(dump);
+                    console.log('[AML] Đã khôi phục từ BACKUP');
+                    return true;
+                }
+                return false;
             }
-            console.log(`[AML] Đã khôi phục state (${Object.keys(dump).length} bàn)`);
+            const dump = JSON.parse(fs.readFileSync(AML_STATE_FILE, 'utf8'));
+            this._restore(dump);
+            console.log(`[AML] Đã khôi phục state (${this.books.size} bàn)`);
             return true;
         } catch (err) {
             console.error('[AML] Lỗi load state:', err.message);
+            // thử backup
+            try {
+                if (fs.existsSync(AML_STATE_BACKUP)) {
+                    const dump = JSON.parse(fs.readFileSync(AML_STATE_BACKUP, 'utf8'));
+                    this._restore(dump);
+                    console.log('[AML] Đã khôi phục từ BACKUP sau lỗi');
+                    return true;
+                }
+            } catch (e) {}
             return false;
+        }
+    }
+
+    _restore(dump) {
+        this.learningStartTime = dump.learningStartTime || new Date().toISOString();
+        const books = dump.books || dump; // backward compat
+        for (const [t, obj] of Object.entries(books)) {
+            this.books.set(t, {
+                book: PatternBook.fromJSON(obj.book),
+                lastKnownResult: obj.lastKnownResult || ''
+            });
+        }
+    }
+
+    isLearningPhase() {
+        if (!this.learningStartTime) return false;
+        const elapsed = Date.now() - new Date(this.learningStartTime).getTime();
+        return elapsed < AML_LEARN_DURATION_MS;
+    }
+
+    startLearning() {
+        if (!this.learningStartTime) {
+            this.learningStartTime = new Date().toISOString();
+            console.log(`[AML] Bắt đầu học cầu lúc ${this.learningStartTime}`);
         }
     }
 }
@@ -735,6 +778,9 @@ async function autoUpdate() {
     }
 }
 
+// ======================
+// EXPRESS
+// ======================
 const app = express();
 
 app.use((req, res, next) => {
@@ -743,9 +789,25 @@ app.use((req, res, next) => {
     next();
 });
 
-// ======================
-// CÁC API CẦU BACCARAT
-// ======================
+app.get('/', (req, res) => {
+    res.json({
+        name: 'Baccarat API Server + BCR-AML',
+        status: 'running',
+        learning: aml.isLearningPhase(),
+        learningStartTime: aml.learningStartTime,
+        lastSaveTime: aml.lastSaveTime,
+        endpoints: [
+            '/api/baccarat',
+            '/api/baccarat/:table',
+            '/api/latest',
+            '/api/predict',
+            '/api/predict/:table',
+            '/api/cau-catalog',
+            '/api/aml-status'
+        ]
+    });
+});
+
 app.get('/api/baccarat', (req, res) => {
     res.json({
         success: true,
@@ -780,6 +842,7 @@ app.get('/api/predict', (req, res) => {
         success: true,
         total: all.length,
         data: all,
+        learning: aml.isLearningPhase(),
         lastUpdate: lastUpdate
     });
 });
@@ -795,70 +858,33 @@ app.get('/api/predict/:table', (req, res) => {
     res.json({ success: true, data: p, lastUpdate: lastUpdate });
 });
 
-// API TÀI LIỆU CẦU
-app.get('/api/cau-document', (req, res) => {
+app.get('/api/cau-catalog', (req, res) => {
+    res.json({ success: true, catalog: CAU_CATALOG });
+});
+
+app.get('/api/aml-status', (req, res) => {
     res.json({
         success: true,
-        data: CAU_DOCUMENT,
-        total_phan: 5
+        learningStartTime: aml.learningStartTime,
+        isLearning: aml.isLearningPhase(),
+        lastSaveTime: aml.lastSaveTime,
+        totalBooks: aml.books.size,
+        tables: Array.from(aml.books.keys()).slice(0, 100)
     });
 });
 
-app.get('/api/cau-document/:phan', (req, res) => {
-    const phan = req.params.phan.toUpperCase();
-    const key = Object.keys(CAU_DOCUMENT).find(k => k.includes(phan) || k.startsWith(phan));
-    if (key && CAU_DOCUMENT[key]) {
-        res.json({ success: true, data: CAU_DOCUMENT[key] });
-    } else {
-        res.json({ success: false, message: 'Không tìm thấy phần: ' + phan });
-    }
-});
-
-app.get('/api/cau/phuong-phap', (req, res) => {
-    const fullDoc = {
-        title: "TÀI LIỆU ĐẦY ĐỦ VỀ CẦU BACCARAT - 5 PHẦN",
-        phan_1: CAU_DOCUMENT.PHAN_1_DANH_MUC,
-        phan_2: CAU_DOCUMENT.PHAN_2_PHAN_TICH,
-        phan_3: CAU_DOCUMENT.PHAN_3_THEO_CAU,
-        phan_4: CAU_DOCUMENT.PHAN_4_BE_CAU,
-        phan_5: CAU_DOCUMENT.PHAN_5_PBPT
-    };
-    res.json({ success: true, data: fullDoc });
-});
-
-app.get('/api/cau/danh-muc', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_1_DANH_MUC });
-});
-
-app.get('/api/cau/phan-tich', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_2_PHAN_TICH });
-});
-
-app.get('/api/cau/theo-cau', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_3_THEO_CAU });
-});
-
-app.get('/api/cau/be-cau', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_4_BE_CAU });
-});
-
-app.get('/api/cau/pbpt', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_5_PBPT });
-});
-
-app.get('/api/cau/pbpt/bang-tong-hop', (req, res) => {
-    res.json({ success: true, data: CAU_DOCUMENT.PHAN_5_PBPT.bang_tong_hop });
-});
-
 // ======================
-// KHỞI ĐỘNG SERVER
+// KHỞI ĐỘNG
 // ======================
 async function start() {
     console.log('========================================');
-    console.log('BACCARAT API SERVER + BCR-AML + CAU DOC');
+    console.log('BACCARAT API SERVER + BCR-AML FULL');
     console.log('========================================');
 
     aml.loadFromFile();
+    if (!aml.learningStartTime) {
+        aml.startLearning();
+    }
 
     console.log('[1] Đang đăng nhập...');
     const loginOk = await login();
@@ -875,15 +901,19 @@ async function start() {
         console.log(`[OK] Đã lấy ${baccaratData.length} bàn`);
     }
 
-    setInterval(() => aml.saveToFile(), 60000);
+    // Lưu định kỳ 30s để chống mất dữ liệu khi Render ngủ đông
+    setInterval(() => aml.saveToFile(), AML_SAVE_INTERVAL_MS);
+
+    // Lưu ngay khi khởi động để đảm bảo có state
+    aml.saveToFile();
+
     autoUpdate();
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🚀 API SERVER ĐANG CHẠY TRÊN PORT ${PORT}`);
         console.log(`   http://localhost:${PORT}/api/predict`);
-        console.log(`   http://localhost:${PORT}/api/cau-document`);
-        console.log(`   http://localhost:${PORT}/api/cau/phuong-phap`);
+        console.log(`   http://localhost:${PORT}/api/aml-status`);
     });
 }
 
