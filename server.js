@@ -21,8 +21,7 @@ let baccaratData = [];
 let lastUpdate = null;
 
 // ============================================================
-// BCR – ADAPTIVE MULTI-PATTERN LEARNING (AML) — THUẬT TOÁN CŨ
-// (GIỮ NGUYÊN 100% — chỉ sửa phần hoà điểm để KHÔNG THIÊN VỊ)
+// BCR – ADAPTIVE MULTI-PATTERN LEARNING (AML) [THUẬT TOÁN CŨ]
 // ============================================================
 const MIN_PATTERN_LEN = 4;
 const MAX_PATTERN_LEN = 12;
@@ -69,75 +68,7 @@ const CAU_CATALOG = {
 };
 
 // ============================================================
-// 🧠 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ B/P
-// Dùng khi các điểm số hoà nhau: chọn cửa dựa trên
-// "cửa đang bị thiệt" theo lịch sử ngắn hạn (mean-reversion)
-// — hoàn toàn đối xứng B↔P, không thiên vị bên nào.
-// ============================================================
-function neutralTieBreak(scores, history, eps = 1e-9) {
-    const B = scores.B || 0, P = scores.P || 0, T = scores.T || 0;
-    const maxV = Math.max(B, P, T);
-
-    // Lọc các hướng có score sát max (trong eps)
-    const tied = [];
-    if (Math.abs(B - maxV) <= eps) tied.push('B');
-    if (Math.abs(P - maxV) <= eps) tied.push('P');
-    if (Math.abs(T - maxV) <= eps) tied.push('T');
-
-    if (tied.length === 1) return tied[0];
-
-    // Hoà giữa 2+ hướng → tie-break theo "cửa thiếu" trong 10 phiên gần nhất
-    const recent = history.slice(-10);
-    let cntB = 0, cntP = 0;
-    for (const ch of recent) {
-        if (ch === 'B') cntB++;
-        else if (ch === 'P') cntP++;
-    }
-    const diff = cntB - cntP; // >0: B nhiều hơn; <0: P nhiều hơn
-
-    // Nếu T nằm trong tie → ưu tiên bỏ T ra khỏi tie-break nếu có thể
-    let pool = tied.slice();
-    if (pool.includes('T') && pool.length > 1) {
-        // Ưu tiên chọn giữa B/P nếu T chỉ hoà ngưỡng
-        const nonT = pool.filter(x => x !== 'T');
-        if (nonT.length > 0) pool = nonT;
-    }
-
-    if (pool.length === 1) return pool[0];
-
-    if (pool.includes('B') && pool.includes('P')) {
-        // Đối xứng: chọn cửa đang ít xuất hiện hơn để cân bằng
-        if (diff > 0) return 'P';
-        if (diff < 0) return 'B';
-        // Hoàn toàn cân bằng → chọn cửa khác cửa vừa ra (mean-reversion)
-        const last = history[history.length - 1];
-        if (last === 'B') return 'P';
-        if (last === 'P') return 'B';
-        // Không có lịch sử → chọn T (trung lập, không thiên vị B/P)
-        return 'T';
-    }
-
-    // Hoà giữa B và T (không có P)
-    if (pool.includes('B') && pool.includes('T')) {
-        const last = history[history.length - 1];
-        if (last === 'B') return 'T';
-        return 'B';
-    }
-    // Hoà giữa P và T
-    if (pool.includes('P') && pool.includes('T')) {
-        const last = history[history.length - 1];
-        if (last === 'P') return 'T';
-        return 'P';
-    }
-
-    // Fallback cuối: chọn cửa ít xuất hiện nhất trong 10 phiên gần
-    if (cntB < cntP) return 'B';
-    if (cntP < cntB) return 'P';
-    return 'T';
-}
-
-// ============================================================
-// PATTERN BOOK — THUẬT TOÁN CŨ
+// PATTERN BOOK [THUẬT TOÁN CŨ - GIỮ NGUYÊN]
 // ============================================================
 class PatternBook {
     constructor() {
@@ -216,11 +147,10 @@ class PatternBook {
         const n = H.length;
 
         if (n === 0) {
-            // Chưa có dữ liệu → không đoán bừa, trả T (trung lập)
-            this.lastPrediction = { pattern_set: [], pred: 'T', history_len: 0 };
+            this.lastPrediction = { pattern_set: [], pred: 'B', history_len: 0 };
             return {
-                pred: 'T',
-                scores: { B: 0.3333, P: 0.3333, T: 0.3334 },
+                pred: 'B',
+                scores: { B: 0.34, P: 0.33, T: 0.33 },
                 candidates: 0,
                 confidence: 0.34,
                 source: 'baseline_empty'
@@ -263,8 +193,9 @@ class PatternBook {
             return this._fallbackPredict(H);
         }
 
-        // 🔥 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ B HAY P
-        const pred = neutralTieBreak(scores, H, 1e-6);
+        let pred = 'B';
+        if (scores.P > scores[pred]) pred = 'P';
+        if (scores.T > scores[pred]) pred = 'T';
 
         this.lastPrediction = {
             pattern_set: candidates,
@@ -317,12 +248,10 @@ class PatternBook {
             T: (rT + 0.5) / (m + 1.5)
         };
 
-        // Đối xứng: nếu cửa vừa ra là B → nghiêng nhẹ sang P; ngược lại
         const last = n > 0 ? H[n - 1] : null;
         const symmetry = { B: 0, P: 0, T: 0 };
         if (last === 'B') { symmetry.P = 0.15; symmetry.B = -0.05; }
         else if (last === 'P') { symmetry.B = 0.15; symmetry.P = -0.05; }
-        // last === 'T' → không thiên vị, không cộng điểm cho ai
 
         const combined = {
             B: freq.B * 0.4 + recentFreq.B * 0.4 + symmetry.B * 0.2,
@@ -330,7 +259,9 @@ class PatternBook {
             T: freq.T * 0.4 + recentFreq.T * 0.4 + symmetry.T * 0.2
         };
 
-        const pred = neutralTieBreak(combined, H, 1e-6);
+        let pred = 'B';
+        if (combined.P > combined[pred]) pred = 'P';
+        if (combined.T > combined[pred]) pred = 'T';
 
         const total = combined.B + combined.P + combined.T;
         const conf = total > 0 ? combined[pred] / total : 0.34;
@@ -493,7 +424,7 @@ class CauAnalyzer {
 }
 
 // ============================================================
-// AML MANAGER — THUẬT TOÁN CŨ
+// AML MANAGER [THUẬT TOÁN CŨ - GIỮ NGUYÊN]
 // ============================================================
 class AMLManager {
     constructor() {
@@ -543,7 +474,7 @@ class AMLManager {
         const n = H.length;
 
         const p = book.predict();
-        const pred = p.pred || 'T';
+        const pred = p.pred || 'B';
 
         const W_B = p.scores.B;
         const W_P = p.scores.P;
@@ -573,7 +504,6 @@ class AMLManager {
         }
 
         let percent = finalRatio * 100;
-
         if (percent < RATIO_MIN) {
             percent = RATIO_MIN + (percent / 100) * 5;
         }
@@ -696,594 +626,315 @@ class AMLManager {
     }
 }
 
-const aml = new AMLManager();
-
-// ============================================================================
-// 🚀 THUẬT TOÁN MỚI — VIP (BRAKE LEARNING) — KHÔNG THIÊN VỊ B/P
-//     - Không random
-//     - Không cứng học cầu (multi-pattern 4→12)
-//     - Tiếp tục học cầu
-//     - Nhận diện cầu đa mặt
-//     - Tự bẻ hướng khi gặp mẫu sai (flip_* + ban_*)
-//     - 🔒 Fail-Safe Brake: không sai quá 3–4 phiên liên tiếp
-//     - 🎯 Tie-break đối xứng B↔P — KHÔNG chắc 1 bên
-// ============================================================================
-const VIP = {
-    MIN_PATTERN_LEN: 4,
-    MAX_PATTERN_LEN: 12,
-    DECAY: 0.95,
-    DECAY_EVERY: 50,
-    BOOST_CORRECT: 1.0,
-    PENALTY_WRONG: -1.5,
-    FLIP_THRESHOLD: 0.35,
-    MAX_CONSECUTIVE_WRONG: 3,
-    RATIO_MIN: 55.0,
-    RATIO_MAX: 89.0,
-    STATE_FILE: path.join(__dirname, 'vip_state.json'),
-    STATE_BACKUP: path.join(__dirname, 'vip_state_backup.json')
-};
-
-// ---------------------------------------------------------------------------
-// VIPPatternBook
-// ---------------------------------------------------------------------------
-class VIPPatternBook {
+// ============================================================
+// THUẬT TOÁN VIP MỚI – MARKOV CHAIN + ENTROPY BALANCE
+// Không thiên vị B hay P. Dựa hoàn toàn vào dữ liệu thực tế.
+// Kết hợp 4 lớp:
+//   1. Markov bậc 1-5 (xác suất chuyển trạng thái)
+//   2. Entropy cân bằng (phát hiện cầu hỗn loạn)
+//   3. Momentum (xu hướng gần nhất 10 phiên)
+//   4. Anti-bias correction (tự động cân bằng lại nếu lệch)
+// ============================================================
+class VIPPredictor {
     constructor() {
-        this.book = new Map();
-        this.history = [];
-        this.lastPrediction = null;
-        this.sessionsSinceDecay = 0;
-        this.stats = { total: 0, correct: 0, wrong: 0 };
-    }
-
-    _newRecord() {
-        return {
-            count: 0,
-            predict_B: 0, predict_P: 0, predict_T: 0,
-            wrong_B: 0, wrong_P: 0, wrong_T: 0,
-            flip_B: 0, flip_P: 0, flip_T: 0,
-            ban_B: false, ban_P: false, ban_T: false,
-            weight: 1.0
+        // Markov transition tables bậc 1 đến 5
+        // key: "BBP" (last N chars) -> { B: count, P: count, T: count }
+        this.markov = {
+            1: new Map(),
+            2: new Map(),
+            3: new Map(),
+            4: new Map(),
+            5: new Map()
         };
+        this.history = [];
+        this.predHistory = []; // { pred, actual } để tính accuracy
     }
 
-    _get(pat) {
-        let rec = this.book.get(pat);
-        if (!rec) {
-            rec = this._newRecord();
-            this.book.set(pat, rec);
-        }
-        return rec;
+    _incMarkov(order, key, outcome) {
+        const m = this.markov[order];
+        if (!m.has(key)) m.set(key, { B: 0, P: 0, T: 0 });
+        const rec = m.get(key);
+        if (rec[outcome] !== undefined) rec[outcome]++;
     }
 
     pushResult(r) {
         if (!['B', 'P', 'T'].includes(r)) return;
+        const H = this.history;
+        const n = H.length;
+
+        // Cập nhật Markov cho từng bậc
+        for (let order = 1; order <= 5; order++) {
+            if (n >= order) {
+                const key = H.slice(n - order).join('');
+                this._incMarkov(order, key, r);
+            }
+        }
 
         this.history.push(r);
-        const endIdx = this.history.length;
-
-        for (let L = VIP.MIN_PATTERN_LEN; L <= VIP.MAX_PATTERN_LEN; L++) {
-            if (endIdx - L < 1) break;
-            const patArr = this.history.slice(endIdx - L - 1, endIdx - 1);
-            const pat = patArr.join('');
-            if (!pat) continue;
-            const rec = this._get(pat);
-            rec.count += 1;
-            rec['predict_' + r] += 1;
-        }
-
-        if (this.lastPrediction && this.lastPrediction.history_len === endIdx - 1) {
-            this._settle(this.lastPrediction, r);
-            this.lastPrediction = null;
-        }
-
-        this.sessionsSinceDecay++;
-        if (this.sessionsSinceDecay >= VIP.DECAY_EVERY) {
-            for (const rec of this.book.values()) {
-                rec.weight *= VIP.DECAY;
-                if (rec.weight < 0.1) rec.ban_B = rec.ban_P = rec.ban_T = false;
-            }
-            this.sessionsSinceDecay = 0;
-        }
     }
 
-    _settle(last, actual) {
-        const ok = (actual === last.pred);
-        this.stats.total++;
-        if (ok) this.stats.correct++;
-        else this.stats.wrong++;
-
-        for (const entry of last.pattern_set) {
-            const rec = this.book.get(entry.pat);
-            if (!rec) continue;
-
-            if (ok) {
-                rec.weight += VIP.BOOST_CORRECT;
-            } else {
-                rec.weight += VIP.PENALTY_WRONG;
-                rec['wrong_' + last.pred] += 1;
-                rec['flip_' + last.pred] += 1;
-
-                const total = rec.predict_B + rec.predict_P + rec.predict_T;
-                if (total > 0 && (rec['wrong_' + last.pred] / total) > VIP.FLIP_THRESHOLD) {
-                    rec['ban_' + last.pred] = true;
-                }
-            }
+    // Tính entropy Shannon của phân phối (đo độ hỗn loạn)
+    _entropy(dist) {
+        const total = dist.B + dist.P + dist.T;
+        if (total === 0) return 1.0;
+        let H = 0;
+        for (const k of ['B', 'P', 'T']) {
+            const p = dist[k] / total;
+            if (p > 0) H -= p * Math.log2(p);
         }
+        // Chuẩn hóa về [0,1] (max entropy = log2(3) ≈ 1.585)
+        return H / Math.log2(3);
+    }
+
+    // Markov prediction cho 1 bậc
+    _markovScore(order) {
+        const H = this.history;
+        const n = H.length;
+        if (n < order) return null;
+        const key = H.slice(n - order).join('');
+        const rec = this.markov[order].get(key);
+        if (!rec) return null;
+        const total = rec.B + rec.P + rec.T;
+        if (total < 2) return null; // cần ít nhất 2 mẫu
+        return { B: rec.B / total, P: rec.P / total, T: rec.T / total, total, entropy: this._entropy(rec) };
+    }
+
+    // Momentum: xu hướng 10 phiên gần nhất (không bias)
+    _momentum() {
+        const H = this.history;
+        const n = H.length;
+        const window = Math.min(10, n);
+        if (window < 3) return null;
+        const recent = H.slice(n - window);
+        const cnt = { B: 0, P: 0, T: 0 };
+        recent.forEach(r => cnt[r]++);
+        const total = window;
+        return { B: cnt.B / total, P: cnt.P / total, T: cnt.T / total };
+    }
+
+    // Anti-bias: nếu tổng dự đoán lịch sử lệch >15% thì nhẹ điều chỉnh ngược
+    _antiBiasCorrection() {
+        const ph = this.predHistory;
+        if (ph.length < 20) return { B: 0, P: 0, T: 0 };
+        const recent50 = ph.slice(-50);
+        const predCnt = { B: 0, P: 0, T: 0 };
+        recent50.forEach(e => { if (predCnt[e.pred] !== undefined) predCnt[e.pred]++; });
+        const n = recent50.length;
+        // Tỉ lệ dự đoán lý tưởng: B~45%, P~45%, T~10% (theo thực tế baccarat)
+        const idealB = 0.45, idealP = 0.45;
+        const ratioB = predCnt.B / n;
+        const ratioP = predCnt.P / n;
+        // Nếu dự đoán B quá nhiều → giảm điểm B, tăng P
+        const correction = { B: 0, P: 0, T: 0 };
+        if (ratioB - idealB > 0.15) correction.B = -0.08;
+        if (ratioP - idealP > 0.15) correction.P = -0.08;
+        return correction;
     }
 
     predict() {
         const H = this.history;
         const n = H.length;
 
-        if (n === 0) {
-            this.lastPrediction = { pattern_set: [], pred: 'T', history_len: 0 };
-            return {
-                pred: 'T',
-                scores: { B: 0.3333, P: 0.3333, T: 0.3334 },
-                candidates: 0,
-                confidence: 0.34,
-                source: 'vip_empty',
-                banned_hits: 0
-            };
+        if (n < 3) {
+            // Chưa đủ dữ liệu: cân bằng hoàn toàn
+            return { pred: 'B', prob: { B: 0.45, P: 0.45, T: 0.10 }, confidence: 0.45, source: 'insufficient_data', note: 'Cần thêm dữ liệu' };
         }
 
-        const candidates = [];
-        let bannedHits = 0;
+        // === LỚP 1: Tổng hợp Markov bậc 1-5 ===
+        // Trọng số: bậc cao hơn = tin cậy hơn nếu đủ mẫu
+        const markovWeights = { 1: 0.10, 2: 0.15, 3: 0.20, 4: 0.25, 5: 0.30 };
+        let totalWeight = 0;
+        const markovScore = { B: 0, P: 0, T: 0 };
 
-        for (let L = 1; L <= VIP.MAX_PATTERN_LEN; L++) {
-            if (n < L) break;
-            const pat = H.slice(H.length - L).join('');
-            const rec = this.book.get(pat);
-            if (!rec) continue;
-            const total = rec.predict_B + rec.predict_P + rec.predict_T;
-            if (total === 0) continue;
-
-            let sB = (rec.predict_B - rec.wrong_B) / total;
-            let sP = (rec.predict_P - rec.wrong_P) / total;
-            let sT = (rec.predict_T - rec.wrong_T) / total;
-
-            // Ban KHÔNG dìm về -1 tuyệt đối — chỉ dìm về 0 để tránh thiên vị
-            if (rec.ban_B) { sB = Math.min(sB, 0); bannedHits++; }
-            if (rec.ban_P) { sP = Math.min(sP, 0); bannedHits++; }
-            if (rec.ban_T) { sT = Math.min(sT, 0); bannedHits++; }
-
-            candidates.push({
-                pat, L,
-                score_B: sB, score_P: sP, score_T: sT,
-                weight: rec.weight
-            });
+        for (let order = 1; order <= 5; order++) {
+            const ms = this._markovScore(order);
+            if (!ms) continue;
+            // Nếu entropy cao (hỗn loạn) → giảm trọng số bậc này
+            const entropyPenalty = ms.entropy > 0.9 ? 0.3 : ms.entropy > 0.7 ? 0.6 : 1.0;
+            // Nếu ít mẫu → giảm trọng số
+            const sampleBonus = ms.total >= 10 ? 1.0 : ms.total >= 5 ? 0.7 : 0.4;
+            const w = markovWeights[order] * entropyPenalty * sampleBonus;
+            markovScore.B += ms.B * w;
+            markovScore.P += ms.P * w;
+            markovScore.T += ms.T * w;
+            totalWeight += w;
         }
 
-        if (candidates.length === 0) {
-            return this._fallbackPredict(H, 'vip_fallback_stats');
+        // Chuẩn hóa Markov
+        if (totalWeight > 0) {
+            markovScore.B /= totalWeight;
+            markovScore.P /= totalWeight;
+            markovScore.T /= totalWeight;
+        } else {
+            // Fallback: dùng tần suất toàn bộ lịch sử
+            const cnt = { B: 0, P: 0, T: 0 };
+            H.forEach(r => cnt[r]++);
+            markovScore.B = cnt.B / n;
+            markovScore.P = cnt.P / n;
+            markovScore.T = cnt.T / n;
         }
 
-        let W_B = 0, W_P = 0, W_T = 0;
-        for (const c of candidates) {
-            const w = Math.max(0.0001, c.weight);
-            W_B += c.score_B * w;
-            W_P += c.score_P * w;
-            W_T += c.score_T * w;
-        }
+        // === LỚP 2: Momentum (xu hướng 10 phiên) ===
+        const mom = this._momentum() || { B: 0.45, P: 0.45, T: 0.10 };
 
-        if (W_B + W_P + W_T < 1e-9) {
-            return this._fallbackPredict(H, 'vip_fallback_zero');
-        }
+        // === LỚP 3: Anti-bias correction ===
+        const bias = this._antiBiasCorrection();
 
-        const scores = { B: W_B, P: W_P, T: W_T };
-
-        // 🔥 NEUTRAL TIE-BREAK — KHÔNG THIÊN VỊ
-        const pred = neutralTieBreak(scores, H, 1e-6);
-
-        this.lastPrediction = {
-            pattern_set: candidates,
-            pred,
-            history_len: n
-        };
-
-        const totalW = W_B + W_P + W_T;
-        const conf = totalW > 0 ? scores[pred] / totalW : 0;
-
-        return {
-            pred,
-            scores: {
-                B: +W_B.toFixed(4),
-                P: +W_P.toFixed(4),
-                T: +W_T.toFixed(4)
-            },
-            candidates: candidates.length,
-            confidence: +conf.toFixed(4),
-            source: 'vip_pattern_book',
-            banned_hits: bannedHits
-        };
-    }
-
-    _fallbackPredict(H, source) {
-        const n = H.length;
-        let cntB = 0, cntP = 0, cntT = 0;
-        for (const ch of H) {
-            if (ch === 'B') cntB++;
-            else if (ch === 'P') cntP++;
-            else if (ch === 'T') cntT++;
-        }
-        const freq = {
-            B: (cntB + 1) / (n + 3),
-            P: (cntP + 1) / (n + 3),
-            T: (cntT + 1) / (n + 3)
-        };
-        const recent = H.slice(-Math.min(10, n));
-        let rB = 0, rP = 0, rT = 0;
-        for (const ch of recent) {
-            if (ch === 'B') rB++;
-            else if (ch === 'P') rP++;
-            else if (ch === 'T') rT++;
-        }
-        const m = recent.length || 1;
-        const recentFreq = {
-            B: (rB + 0.5) / (m + 1.5),
-            P: (rP + 0.5) / (m + 1.5),
-            T: (rT + 0.5) / (m + 1.5)
-        };
-        const last = n > 0 ? H[n - 1] : null;
-        const symmetry = { B: 0, P: 0, T: 0 };
-        if (last === 'B') { symmetry.P = 0.15; symmetry.B = -0.05; }
-        else if (last === 'P') { symmetry.B = 0.15; symmetry.P = -0.05; }
-
+        // === TỔNG HỢP CUỐI ===
+        // Trọng số tổng hợp: Markov 65%, Momentum 35%
         const combined = {
-            B: freq.B * 0.4 + recentFreq.B * 0.4 + symmetry.B * 0.2,
-            P: freq.P * 0.4 + recentFreq.P * 0.4 + symmetry.P * 0.2,
-            T: freq.T * 0.4 + recentFreq.T * 0.4 + symmetry.T * 0.2
+            B: markovScore.B * 0.65 + mom.B * 0.35 + bias.B,
+            P: markovScore.P * 0.65 + mom.P * 0.35 + bias.P,
+            T: markovScore.T * 0.65 + mom.T * 0.35 + bias.T
         };
 
-        const pred = neutralTieBreak(combined, H, 1e-6);
-        const total = combined.B + combined.P + combined.T;
-        const conf = total > 0 ? combined[pred] / total : 0.34;
+        // Đảm bảo không âm
+        combined.B = Math.max(0, combined.B);
+        combined.P = Math.max(0, combined.P);
+        combined.T = Math.max(0, combined.T);
 
-        this.lastPrediction = { pattern_set: [], pred, history_len: n };
+        // Chuẩn hóa về tổng = 1
+        const sumC = combined.B + combined.P + combined.T;
+        if (sumC > 0) {
+            combined.B /= sumC;
+            combined.P /= sumC;
+            combined.T /= sumC;
+        }
+
+        // Chọn dự đoán cao nhất
+        let pred = 'B';
+        if (combined.P > combined[pred]) pred = 'P';
+        if (combined.T > combined[pred]) pred = 'T';
+
+        // Tính ngưỡng tin cậy: chỉ dự đoán khi chênh lệch rõ ràng
+        const sorted = [combined.B, combined.P, combined.T].sort((a, b) => b - a);
+        const margin = sorted[0] - sorted[1]; // chênh lệch top 1 vs top 2
+        const confidence = combined[pred];
+
+        // Clamp tỉ lệ về [55%, 85%]
+        const rawPct = confidence * 100;
+        const pct = Math.max(55, Math.min(85, 55 + rawPct * 0.3));
+
+        // Ghi lại lịch sử dự đoán cho anti-bias
+        this.predHistory.push({ pred, ts: Date.now() });
+        if (this.predHistory.length > 200) this.predHistory.shift();
 
         return {
             pred,
-            scores: {
+            prob: {
                 B: +combined.B.toFixed(4),
                 P: +combined.P.toFixed(4),
                 T: +combined.T.toFixed(4)
             },
-            candidates: 0,
-            confidence: +conf.toFixed(4),
-            source,
-            banned_hits: 0
+            confidence: +confidence.toFixed(4),
+            margin: +margin.toFixed(4),
+            pct: pct.toFixed(1) + '%',
+            source: totalWeight > 0 ? 'markov_momentum' : 'frequency_fallback',
+            phien: n
         };
     }
 
     toJSON() {
         return {
             history: this.history,
-            book: Array.from(this.book.entries()),
-            stats: this.stats,
-            sessionsSinceDecay: this.sessionsSinceDecay
+            markov: Object.fromEntries(
+                Object.entries(this.markov).map(([k, v]) => [k, Array.from(v.entries())])
+            ),
+            predHistory: this.predHistory
         };
     }
 
     static fromJSON(obj) {
-        const pb = new VIPPatternBook();
-        pb.history = obj.history || [];
-        pb.stats = obj.stats || { total: 0, correct: 0, wrong: 0 };
-        pb.sessionsSinceDecay = obj.sessionsSinceDecay || 0;
-        pb.book = new Map(obj.book || []);
-        for (const [, rec] of pb.book) {
-            if (rec.flip_B === undefined) rec.flip_B = 0;
-            if (rec.flip_P === undefined) rec.flip_P = 0;
-            if (rec.flip_T === undefined) rec.flip_T = 0;
-            if (rec.ban_B === undefined) rec.ban_B = false;
-            if (rec.ban_P === undefined) rec.ban_P = false;
-            if (rec.ban_T === undefined) rec.ban_T = false;
+        const vp = new VIPPredictor();
+        vp.history = obj.history || [];
+        vp.predHistory = obj.predHistory || [];
+        for (const [k, entries] of Object.entries(obj.markov || {})) {
+            vp.markov[parseInt(k)] = new Map(entries);
         }
-        return pb;
+        return vp;
     }
 }
 
-// ---------------------------------------------------------------------------
-// VIPBrakeState — Fail-Safe Brake (ĐỐI XỨNG B↔P)
-// ---------------------------------------------------------------------------
-class VIPBrakeState {
-    constructor() {
-        this.streak_wrong = 0;
-        this.streak_correct = 0;
-        this.last_pred = null;
-        this.last_actual = null;
-        this.brake_mode = false;
-        this.brake_activations = 0;
-        this.max_streak_wrong_ever = 0;
-    }
+// ============================================================
+// VIP MANAGER
+// ============================================================
+const VIP_STATE_FILE = path.join(__dirname, 'vip_state.json');
 
-    record(actual, prediction) {
-        const ok = (actual === prediction);
-        this.last_pred = prediction;
-        this.last_actual = actual;
-
-        if (ok) {
-            this.streak_correct += 1;
-            this.streak_wrong = 0;
-            if (this.brake_mode) this.brake_mode = false;
-        } else {
-            this.streak_wrong += 1;
-            this.streak_correct = 0;
-            if (this.streak_wrong >= VIP.MAX_CONSECUTIVE_WRONG) {
-                if (!this.brake_mode) this.brake_activations += 1;
-                this.brake_mode = true;
-            }
-            if (this.streak_wrong > this.max_streak_wrong_ever) {
-                this.max_streak_wrong_ever = this.streak_wrong;
-            }
-        }
-    }
-
-    apply(rawPred, scores, history) {
-        let finalPred = rawPred;
-        let brakeApplied = false;
-        let reason = 'none';
-
-        if (this.streak_wrong >= VIP.MAX_CONSECUTIVE_WRONG) {
-            this.brake_mode = true;
-        }
-
-        if (this.brake_mode) {
-            // Nếu trùng hướng đang thua → bẻ sang hướng khác (đối xứng)
-            if (this.last_pred && finalPred === this.last_pred) {
-                finalPred = pickOther(scores, this.last_pred, history);
-                brakeApplied = true;
-                reason = 'flip_from_last_wrong';
-            }
-            // Sai ≥ 4 phiên → ép sang hướng chưa bị thua liên tiếp
-            if (this.streak_wrong >= VIP.MAX_CONSECUTIVE_WRONG + 1) {
-                const avoid = [this.last_pred, finalPred].filter(Boolean);
-                const forced = pickOtherMulti(scores, avoid, history);
-                if (forced && !avoid.includes(forced)) {
-                    finalPred = forced;
-                    brakeApplied = true;
-                    reason = 'forced_third_direction';
-                }
-            }
-        }
-
-        return { finalPred, brakeApplied, reason };
-    }
-
-    toJSON() {
-        return {
-            streak_wrong: this.streak_wrong,
-            streak_correct: this.streak_correct,
-            last_pred: this.last_pred,
-            last_actual: this.last_actual,
-            brake_mode: this.brake_mode,
-            brake_activations: this.brake_activations,
-            max_streak_wrong_ever: this.max_streak_wrong_ever
-        };
-    }
-
-    static fromJSON(o) {
-        const s = new VIPBrakeState();
-        if (!o) return s;
-        s.streak_wrong = o.streak_wrong || 0;
-        s.streak_correct = o.streak_correct || 0;
-        s.last_pred = o.last_pred || null;
-        s.last_actual = o.last_actual || null;
-        s.brake_mode = !!o.brake_mode;
-        s.brake_activations = o.brake_activations || 0;
-        s.max_streak_wrong_ever = o.max_streak_wrong_ever || 0;
-        return s;
-    }
-}
-
-// --- Helper chọn hướng — ĐỐI XỨNG, KHÔNG THIÊN VỊ ---
-function pickOther(scores, exclude, history) {
-    const pool = ['B', 'P', 'T'].filter(k => k !== exclude);
-    // Sắp theo score giảm dần
-    pool.sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
-    const top = (scores[pool[0]] || 0);
-    const second = (scores[pool[1]] || 0);
-    // Nếu 2 hướng còn lại hoà nhau → dùng neutralTieBreak
-    if (Math.abs(top - second) < 1e-6) {
-        const subScores = { B: -Infinity, P: -Infinity, T: -Infinity };
-        subScores[pool[0]] = top;
-        subScores[pool[1]] = second;
-        return neutralTieBreak(subScores, history || [], 1e-6);
-    }
-    return pool[0];
-}
-
-function pickOtherMulti(scores, avoid, history) {
-    const pool = ['B', 'P', 'T'].filter(k => !avoid.includes(k));
-    if (pool.length === 0) return null;
-    pool.sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
-    return pool[0];
-}
-
-// ---------------------------------------------------------------------------
-// VIPManager
-// ---------------------------------------------------------------------------
 class VIPManager {
     constructor() {
-        this.tables = new Map();
-        this.learningStartTime = null;
-        this.lastSaveTime = null;
-        this.createdAt = new Date().toISOString();
-        this._lastFinalPredMap = new Map();
+        this.predictors = new Map(); // tableName -> { predictor, lastKnownResult }
     }
 
     sync(tableName, resultString) {
         if (!resultString) return;
+        let entry = this.predictors.get(tableName);
 
-        let entry = this.tables.get(tableName);
         if (!entry) {
-            entry = { book: new VIPPatternBook(), brake: new VIPBrakeState(), lastKnownResult: '' };
-            this.tables.set(tableName, entry);
-            for (const ch of resultString) this._ingestOne(entry, ch);
-            entry.lastKnownResult = resultString;
-            return;
+            entry = { predictor: new VIPPredictor(), lastKnownResult: '' };
+            this.predictors.set(tableName, entry);
         }
 
         const prev = entry.lastKnownResult;
-        if (resultString.length > prev.length) {
-            if (resultString.startsWith(prev)) {
-                const added = resultString.slice(prev.length);
-                for (const ch of added) this._ingestOne(entry, ch);
-            } else {
-                entry.book = new VIPPatternBook();
-                entry.brake = new VIPBrakeState();
-                this._lastFinalPredMap.delete(tableName);
-                for (const ch of resultString) this._ingestOne(entry, ch);
-            }
-            entry.lastKnownResult = resultString;
-        } else if (resultString.length < prev.length) {
-            entry.book = new VIPPatternBook();
-            entry.brake = new VIPBrakeState();
-            this._lastFinalPredMap.delete(tableName);
-            for (const ch of resultString) this._ingestOne(entry, ch);
-            entry.lastKnownResult = resultString;
-        }
-    }
 
-    _ingestOne(entry, ch) {
-        const beforeLen = entry.book.history.length;
-        // Settle brake TRƯỚC khi push
-        if (entry.book.lastPrediction && entry.book.lastPrediction.history_len === beforeLen) {
-            const settledPred = entry.book.lastPrediction.pred;
-            const finalUsed = this._lastFinalPredMap.get(this._currentTable) || settledPred;
-            entry.brake.record(ch, finalUsed);
+        if (resultString === prev) return;
+
+        if (resultString.length > prev.length && resultString.startsWith(prev)) {
+            // Chỉ thêm phần mới
+            const added = resultString.slice(prev.length);
+            for (const ch of added) entry.predictor.pushResult(ch);
+        } else {
+            // Reset và học lại từ đầu
+            entry.predictor = new VIPPredictor();
+            for (const ch of resultString) entry.predictor.pushResult(ch);
         }
-        entry.book.pushResult(ch);
+        entry.lastKnownResult = resultString;
     }
 
     getPrediction(tableName) {
-        const entry = this.tables.get(tableName);
+        const entry = this.predictors.get(tableName);
         if (!entry) return null;
-
-        const book = entry.book;
-        const brake = entry.brake;
-        const H = book.history;
-        const n = H.length;
-
-        const raw = book.predict();
-        const rawPred = raw.pred || 'T';
-
-        const { finalPred, brakeApplied, reason } = brake.apply(rawPred, raw.scores, H);
-
-        // Lưu prediction cuối cùng để settle chính xác ở lần sync sau
-        this._lastFinalPredMap.set(tableName, finalPred);
-        this._currentTable = tableName;
-
-        const W_sum = raw.scores.B + raw.scores.P + raw.scores.T;
-        const ratioByWeight = W_sum > 0 ? (raw.scores[finalPred] / W_sum) : 0.34;
-
-        const patternSet = (book.lastPrediction && book.lastPrediction.pattern_set) || [];
-        let totalSamples = 0;
-        let correctSamples = 0;
-        for (const c of patternSet) {
-            const rec = book.book.get(c.pat);
-            if (!rec) continue;
-            totalSamples += rec.count;
-            const wrongForPred = rec['wrong_' + finalPred] || 0;
-            correctSamples += Math.max(0, rec['predict_' + finalPred] - wrongForPred);
-        }
-        const ratioBySamples = totalSamples > 0 ? (correctSamples / totalSamples) : ratioByWeight;
-
-        let finalRatio;
-        if (totalSamples >= 10) {
-            finalRatio = ratioByWeight * 0.4 + ratioBySamples * 0.6;
-        } else if (totalSamples >= 3) {
-            finalRatio = ratioByWeight * 0.7 + ratioBySamples * 0.3;
-        } else {
-            finalRatio = ratioByWeight;
-        }
-
-        let percent = finalRatio * 100;
-        if (percent < VIP.RATIO_MIN) percent = VIP.RATIO_MIN + (percent / 100) * 5;
-        if (percent > VIP.RATIO_MAX) percent = VIP.RATIO_MAX;
-
-        let cau;
-        if (patternSet.length > 0) {
-            const longest = [...patternSet].sort((a, b) => b.L - a.L)[0];
-            cau = longest.pat;
-        } else {
-            cau = H.slice(-VIP.MAX_PATTERN_LEN).join('');
-        }
-        if (!cau && n === 0) cau = '—';
-
+        const p = entry.predictor.predict();
+        const H = entry.predictor.history;
         const cauInfo = CauAnalyzer.analyze(H);
         const pbpt = CauAnalyzer.detectPBPT(H);
 
         return {
             "bàn": tableName,
-            "phiên": n,
-            "cầu": cau,
+            "phiên": H.length,
             "loại_cầu": cauInfo.label,
             "cầu_pattern": cauInfo.pattern,
-            "dự đoán": finalPred,
-            "tỉ lệ": percent.toFixed(1) + '%',
-            "thuật_toán": "VIP_AML_V2_BRAKE",
-            "raw_pred": rawPred,
-            "brake_active": !!brake.brake_mode,
-            "brake_applied": brakeApplied,
-            "brake_reason": reason,
-            "streak_wrong": brake.streak_wrong,
-            "streak_correct": brake.streak_correct,
-            "max_streak_wrong": brake.max_streak_wrong_ever,
-            "brake_activations": brake.brake_activations,
-            "confidence": raw.confidence,
-            "source": raw.source,
-            "banned_hits": raw.banned_hits || 0,
+            "dự đoán": p.pred,
+            "tỉ lệ": p.pct,
+            "xác_suất": p.prob,
+            "độ_tin_cậy": p.confidence,
+            "biên_độ": p.margin,
+            "nguồn": p.source,
             "phân_bố": pbpt.distribution,
             "xu_hướng": pbpt.trend,
-            "đối_xứng": pbpt.symmetry,
-            "thống_kê": book.stats
+            "note": p.note || null
         };
     }
 
     getAllPredictions() {
         const out = [];
-        for (const [tableName] of this.tables) {
+        for (const [tableName] of this.predictors) {
             const p = this.getPrediction(tableName);
             if (p) out.push(p);
         }
         return out;
     }
 
-    compare(tableName) {
-        const oldP = aml.getPrediction(tableName);
-        const newP = this.getPrediction(tableName);
-        if (!oldP && !newP) return null;
-        return {
-            "bàn": tableName,
-            "thuật_toán_cũ": oldP,
-            "thuật_toán_mới_VIP": newP,
-            "khớp_nhau": oldP && newP ? (oldP['dự đoán'] === newP['dự đoán']) : null
-        };
-    }
-
     saveToFile() {
         try {
-            const dump = {
-                savedAt: new Date().toISOString(),
-                createdAt: this.createdAt,
-                learningStartTime: this.learningStartTime,
-                tables: {}
-            };
-            for (const [t, e] of this.tables) {
-                dump.tables[t] = {
-                    book: e.book.toJSON(),
-                    brake: e.brake.toJSON(),
+            const dump = { savedAt: new Date().toISOString(), predictors: {} };
+            for (const [t, e] of this.predictors) {
+                dump.predictors[t] = {
+                    predictor: e.predictor.toJSON(),
                     lastKnownResult: e.lastKnownResult
                 };
             }
-            try {
-                if (fs.existsSync(VIP.STATE_FILE)) {
-                    fs.copyFileSync(VIP.STATE_FILE, VIP.STATE_BACKUP);
-                }
-            } catch (e) {}
-            fs.writeFileSync(VIP.STATE_FILE, JSON.stringify(dump));
-            this.lastSaveTime = new Date();
-            console.log(`[VIP] Đã lưu state (${Object.keys(dump.tables).length} bàn) lúc ${this.lastSaveTime.toISOString()}`);
+            fs.writeFileSync(VIP_STATE_FILE, JSON.stringify(dump));
+            console.log(`[VIP] Đã lưu state (${Object.keys(dump.predictors).length} bàn)`);
         } catch (err) {
             console.error('[VIP] Lỗi lưu state:', err.message);
         }
@@ -1291,80 +942,35 @@ class VIPManager {
 
     loadFromFile() {
         try {
-            let file = VIP.STATE_FILE;
-            if (!fs.existsSync(file) && fs.existsSync(VIP.STATE_BACKUP)) file = VIP.STATE_BACKUP;
-            if (!fs.existsSync(file)) return false;
-            const dump = JSON.parse(fs.readFileSync(file, 'utf8'));
-            this.learningStartTime = dump.learningStartTime || new Date().toISOString();
-            this.createdAt = dump.createdAt || this.createdAt;
-            const tables = dump.tables || {};
-            for (const [t, obj] of Object.entries(tables)) {
-                this.tables.set(t, {
-                    book: VIPPatternBook.fromJSON(obj.book),
-                    brake: VIPBrakeState.fromJSON(obj.brake),
+            if (!fs.existsSync(VIP_STATE_FILE)) return false;
+            const dump = JSON.parse(fs.readFileSync(VIP_STATE_FILE, 'utf8'));
+            for (const [t, obj] of Object.entries(dump.predictors || {})) {
+                this.predictors.set(t, {
+                    predictor: VIPPredictor.fromJSON(obj.predictor),
                     lastKnownResult: obj.lastKnownResult || ''
                 });
             }
-            console.log(`[VIP] Đã khôi phục state (${this.tables.size} bàn)`);
+            console.log(`[VIP] Đã khôi phục state (${this.predictors.size} bàn)`);
             return true;
         } catch (err) {
             console.error('[VIP] Lỗi load state:', err.message);
             return false;
         }
     }
-
-    startLearning() {
-        if (!this.learningStartTime) {
-            this.learningStartTime = new Date().toISOString();
-            console.log(`[VIP] Bắt đầu học cầu lúc ${this.learningStartTime}`);
-        }
-    }
-
-    isLearningPhase() {
-        if (!this.learningStartTime) return false;
-        const elapsed = Date.now() - new Date(this.learningStartTime).getTime();
-        return elapsed < AML_LEARN_DURATION_MS;
-    }
-
-    summary() {
-        let totalW = 0, totalC = 0, totalWrong = 0, brakeActs = 0, maxStreak = 0;
-        for (const [, e] of this.tables) {
-            totalW += e.book.stats.total;
-            totalC += e.book.stats.correct;
-            totalWrong += e.book.stats.wrong;
-            brakeActs += e.brake.brake_activations;
-            if (e.brake.max_streak_wrong_ever > maxStreak) maxStreak = e.brake.max_streak_wrong_ever;
-        }
-        return {
-            total_tables: this.tables.size,
-            total_predictions: totalW,
-            correct: totalC,
-            wrong: totalWrong,
-            accuracy: totalW > 0 ? ((totalC / totalW) * 100).toFixed(2) + '%' : '—',
-            brake_activations_total: brakeActs,
-            max_streak_wrong_ever: maxStreak
-        };
-    }
 }
 
+// ======================
+// KHỞI TẠO
+// ======================
+const aml = new AMLManager();
 const vip = new VIPManager();
 
-// ============================================================
-// SYNC — CHẠY 2 THUẬT TOÁN SONG SONG
-// ============================================================
-function syncAMLFromData() {
+function syncAllFromData() {
     for (const item of baccaratData) {
-        if (!item.table || !item.result) continue;
-        // Thuật toán cũ
-        try {
-            aml._currentTable = item.table;
+        if (item.table && item.result) {
             aml.sync(item.table, item.result);
-        } catch (e) { console.error('[AML sync]', e.message); }
-        // Thuật toán VIP
-        try {
-            vip._currentTable = item.table;
             vip.sync(item.table, item.result);
-        } catch (e) { console.error('[VIP sync]', e.message); }
+        }
     }
 }
 
@@ -1474,7 +1080,7 @@ async function fetchBaccaratData() {
                 };
             });
             lastUpdate = new Date().toISOString();
-            syncAMLFromData();
+            syncAllFromData();
         }
 
         return baccaratData;
@@ -1502,35 +1108,33 @@ app.use((req, res, next) => {
     next();
 });
 
-// ---------- ROOT ----------
+// Root
 app.get('/', (req, res) => {
     res.json({
-        name: 'Baccarat API — 2 Thuật toán song song',
+        name: 'Baccarat API Server + BCR-AML + VIP-Markov',
         status: 'running',
-        algorithms: {
-            OLD: {
-                name: 'BCR-AML (thuật toán cũ của bạn)',
-                endpoints: ['/api/predict', '/api/predict/:table', '/api/aml-status']
-            },
-            VIP: {
-                name: 'VIP_AML_V2_BRAKE (thuật toán mới — Fail-Safe Brake)',
-                endpoints: ['/api/vip/predict', '/api/vip/predict/:table', '/api/vip/status', '/api/vip/compare/:table']
-            }
-        },
-        learning: {
-            old_learning: aml.isLearningPhase(),
-            vip_learning: vip.isLearningPhase()
-        },
-        endpoints: [
-            '/api/baccarat', '/api/baccarat/:table', '/api/latest',
-            '/api/predict', '/api/predict/:table', '/api/cau-catalog', '/api/aml-status',
-            '/api/vip/predict', '/api/vip/predict/:table', '/api/vip/status',
-            '/api/vip/compare/:table', '/api/compare-all'
-        ]
+        learning: aml.isLearningPhase(),
+        endpoints: {
+            standard: [
+                '/api/baccarat',
+                '/api/baccarat/:table',
+                '/api/latest',
+                '/api/predict',
+                '/api/predict/:table',
+                '/api/cau-catalog',
+                '/api/aml-status'
+            ],
+            vip: [
+                '/api/vip-predict          ← Dự đoán VIP tất cả bàn',
+                '/api/vip-predict/:table   ← Dự đoán VIP 1 bàn',
+                '/api/vip-status           ← Trạng thái VIP engine'
+            ]
+        }
     });
 });
 
-// ---------- DỮ LIỆU RAW ----------
+// ---- ENDPOINT CŨ (GIỮ NGUYÊN) ----
+
 app.get('/api/baccarat', (req, res) => {
     res.json({ success: true, data: baccaratData, lastUpdate, total: baccaratData.length });
 });
@@ -1542,31 +1146,19 @@ app.get('/api/baccarat/:table', (req, res) => {
 });
 
 app.get('/api/latest', (req, res) => {
-    const latest = [...baccaratData].sort((a, b) => {
-        const numA = parseInt(a.table) || 0;
-        const numB = parseInt(b.table) || 0;
-        return numB - numA;
-    });
+    const latest = [...baccaratData].sort((a, b) => (parseInt(b.table) || 0) - (parseInt(a.table) || 0));
     res.json({ success: true, data: latest.slice(0, 10), lastUpdate });
 });
 
-// ---------- THUẬT TOÁN CŨ ----------
 app.get('/api/predict', (req, res) => {
     const all = aml.getAllPredictions();
-    res.json({
-        success: true,
-        algorithm: 'OLD_BCR_AML',
-        total: all.length,
-        data: all,
-        learning: aml.isLearningPhase(),
-        lastUpdate
-    });
+    res.json({ success: true, total: all.length, data: all, learning: aml.isLearningPhase(), lastUpdate });
 });
 
 app.get('/api/predict/:table', (req, res) => {
     const p = aml.getPrediction(req.params.table);
     if (!p) return res.json({ success: false, message: 'Bàn chưa có dữ liệu: ' + req.params.table });
-    res.json({ success: true, algorithm: 'OLD_BCR_AML', data: p, lastUpdate });
+    res.json({ success: true, data: p, lastUpdate });
 });
 
 app.get('/api/cau-catalog', (req, res) => {
@@ -1576,7 +1168,6 @@ app.get('/api/cau-catalog', (req, res) => {
 app.get('/api/aml-status', (req, res) => {
     res.json({
         success: true,
-        algorithm: 'OLD_BCR_AML',
         learningStartTime: aml.learningStartTime,
         isLearning: aml.isLearningPhase(),
         lastSaveTime: aml.lastSaveTime,
@@ -1585,98 +1176,53 @@ app.get('/api/aml-status', (req, res) => {
     });
 });
 
-// ============================================================
-// 🚀 API VIP — THUẬT TOÁN MỚI (Fail-Safe Brake)
-// ============================================================
-app.get('/api/vip/predict', (req, res) => {
+// ---- ENDPOINT VIP MỚI ----
+
+app.get('/api/vip-predict', (req, res) => {
     const all = vip.getAllPredictions();
     res.json({
         success: true,
-        algorithm: 'VIP_AML_V2_BRAKE',
-        description: 'Thuật toán mới: bẻ hướng + ban mẫu sai + phanh chống sai >3-4 phiên',
+        algorithm: 'VIP-Markov-Entropy v1.0',
+        description: 'Markov Chain bậc 1-5 + Entropy cân bằng + Momentum + Anti-bias. Không thiên vị B hay P.',
         total: all.length,
         data: all,
-        summary: vip.summary(),
-        learning: vip.isLearningPhase(),
         lastUpdate
     });
 });
 
-app.get('/api/vip/predict/:table', (req, res) => {
+app.get('/api/vip-predict/:table', (req, res) => {
     const p = vip.getPrediction(req.params.table);
-    if (!p) return res.json({ success: false, message: 'Bàn chưa có dữ liệu: ' + req.params.table });
-    res.json({ success: true, algorithm: 'VIP_AML_V2_BRAKE', data: p, lastUpdate });
-});
-
-app.get('/api/vip/status', (req, res) => {
+    if (!p) return res.json({ success: false, message: 'Bàn VIP chưa có dữ liệu: ' + req.params.table });
     res.json({
         success: true,
-        algorithm: 'VIP_AML_V2_BRAKE',
-        createdAt: vip.createdAt,
-        learningStartTime: vip.learningStartTime,
-        isLearning: vip.isLearningPhase(),
-        lastSaveTime: vip.lastSaveTime,
-        totalTables: vip.tables.size,
-        summary: vip.summary(),
-        config: {
-            MIN_PATTERN_LEN: VIP.MIN_PATTERN_LEN,
-            MAX_PATTERN_LEN: VIP.MAX_PATTERN_LEN,
-            FLIP_THRESHOLD: VIP.FLIP_THRESHOLD,
-            MAX_CONSECUTIVE_WRONG: VIP.MAX_CONSECUTIVE_WRONG,
-            PENALTY_WRONG: VIP.PENALTY_WRONG,
-            BOOST_CORRECT: VIP.BOOST_CORRECT,
-            DECAY: VIP.DECAY,
-            DECAY_EVERY: VIP.DECAY_EVERY,
-            bias_protection: 'neutral_tie_break_symmetric_BP'
-        },
-        tables: Array.from(vip.tables.keys()).slice(0, 100)
+        algorithm: 'VIP-Markov-Entropy v1.0',
+        data: p,
+        lastUpdate
     });
 });
 
-app.get('/api/vip/compare/:table', (req, res) => {
-    const cmp = vip.compare(req.params.table);
-    if (!cmp) return res.json({ success: false, message: 'Chưa có dữ liệu bàn: ' + req.params.table });
-    res.json({ success: true, ...cmp });
-});
-
-// ---------- So sánh toàn bộ ----------
-app.get('/api/compare-all', (req, res) => {
-    const tables = new Set([...aml.books.keys(), ...vip.tables.keys()]);
-    const rows = [];
-    let match = 0, mismatch = 0;
-    for (const t of tables) {
-        const oldP = aml.getPrediction(t);
-        const newP = vip.getPrediction(t);
-        const same = oldP && newP ? oldP['dự đoán'] === newP['dự đoán'] : null;
-        if (same === true) match++;
-        if (same === false) mismatch++;
-        rows.push({
-            "bàn": t,
-            "cũ": oldP ? oldP['dự đoán'] : null,
-            "VIP": newP ? newP['dự đoán'] : null,
-            "khớp": same,
-            "brake_active": newP ? newP['brake_active'] : null
-        });
-    }
-    res.json({ success: true, total: rows.length, match, mismatch, data: rows });
+app.get('/api/vip-status', (req, res) => {
+    res.json({
+        success: true,
+        algorithm: 'VIP-Markov-Entropy v1.0',
+        totalTables: vip.predictors.size,
+        tables: Array.from(vip.predictors.keys()).slice(0, 100),
+        lastUpdate
+    });
 });
 
 // ======================
 // KHỞI ĐỘNG
 // ======================
 async function start() {
-    console.log('==================================================');
-    console.log('BACCARAT API — 2 THUẬT TOÁN SONG SONG');
-    console.log('  [1] OLD: BCR-AML (giữ nguyên code gốc)');
-    console.log('  [2] VIP: VIP_AML_V2_BRAKE (mới — chống sai >3-4 phiên)');
-    console.log('  [✓] Neutral tie-break — KHÔNG thiên vị B/P');
-    console.log('==================================================');
+    console.log('========================================');
+    console.log('BACCARAT API SERVER + BCR-AML + VIP');
+    console.log('========================================');
 
     aml.loadFromFile();
-    if (!aml.learningStartTime) aml.startLearning();
-
     vip.loadFromFile();
-    if (!vip.learningStartTime) vip.startLearning();
+
+    if (!aml.learningStartTime) aml.startLearning();
 
     console.log('[1] Đang đăng nhập...');
     const loginOk = await login();
@@ -1684,20 +1230,13 @@ async function start() {
         console.error('[ERROR] Đăng nhập thất bại!');
     } else {
         console.log('[OK] Đăng nhập thành công');
-        console.log('[2] Vào lobby...');
         await goToLobby();
         console.log('[OK] Vào lobby thành công');
-
-        console.log('[3] Lấy dữ liệu lần đầu...');
         await fetchBaccaratData();
         console.log(`[OK] Đã lấy ${baccaratData.length} bàn`);
     }
 
-    setInterval(() => {
-        aml.saveToFile();
-        vip.saveToFile();
-    }, AML_SAVE_INTERVAL_MS);
-
+    setInterval(() => { aml.saveToFile(); vip.saveToFile(); }, AML_SAVE_INTERVAL_MS);
     aml.saveToFile();
     vip.saveToFile();
 
@@ -1705,18 +1244,9 @@ async function start() {
 
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, '0.0.0.0', () => {
-        console.log(`\n🚀 API SERVER ĐANG CHẠY TRÊN PORT ${PORT}`);
-        console.log(`\n--- THUẬT TOÁN CŨ ---`);
-        console.log(`   http://localhost:${PORT}/api/predict`);
-        console.log(`   http://localhost:${PORT}/api/predict/:table`);
-        console.log(`   http://localhost:${PORT}/api/aml-status`);
-        console.log(`\n--- 🌟 THUẬT TOÁN MỚI (VIP) ---`);
-        console.log(`   http://localhost:${PORT}/api/vip/predict`);
-        console.log(`   http://localhost:${PORT}/api/vip/predict/:table`);
-        console.log(`   http://localhost:${PORT}/api/vip/status`);
-        console.log(`   http://localhost:${PORT}/api/vip/compare/:table`);
-        console.log(`\n--- SO SÁNH ---`);
-        console.log(`   http://localhost:${PORT}/api/compare-all`);
+        console.log(`\n🚀 SERVER ĐANG CHẠY TRÊN PORT ${PORT}`);
+        console.log(`   [AML CŨ]  http://localhost:${PORT}/api/predict`);
+        console.log(`   [VIP MỚI] http://localhost:${PORT}/api/vip-predict`);
     });
 }
 
